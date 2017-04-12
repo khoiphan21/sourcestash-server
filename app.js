@@ -35,9 +35,9 @@ app.use((request, response, next) => {
 
 var mysql = mysqlModule.createConnection({
     // LOCALHOST FOR DEVELOPMENT PURPOSES
-    host: "localhost",
+    host: "104.199.209.1",
     user: "root",
-    password: "",
+    password: "sourcestashuq2017",
     database: 'source_stash'
 });
 
