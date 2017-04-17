@@ -16,7 +16,12 @@
 // [START app]
 'use strict';
 
+var google = require('googleapis');
+var plus = google.plus('v1');
+var authClient = require('./authClient');
+
 let mysqlModule = require('mysql');
+var Session = require('express-session');
 let bodyParser = require('body-parser');
 let multer = require('multer');
 let upload = multer(); // for parsing multipart/form-data
@@ -27,11 +32,17 @@ app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({
     extended: true
 })); // for parsing multipart/form-Data
-app.use((request, response, next) => {
-    response.header('Access-Control-Allow-Origin', '*');
-    response.header('Access-Control-Allow-Headers', 'Origin, Content-Type, X-Requested-With, Accept')
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, X-reqed-With, Accept')
     next();
-})
+});
+//using session in express
+app.use(Session({
+    secret: 'your-random-secret-19890913007',
+    resave: true,
+    saveUninitialized: true
+}));
 
 var mysql = mysqlModule.createConnection({
     // LOCALHOST FOR DEVELOPMENT PURPOSES
@@ -59,30 +70,78 @@ mysql.connect(function(err) {
 /**
  * START DEFINING RESTFUL API
  */
-app.get('/', (request, res) => {
-    res.status(200).send('Hello, from the SourceStash Server Team!');
+app.get('/', (req, res) => {
+    console.log(req.params);
+    var url = authClient.getAuthUrl();
+    // res.status(200).send('Hello, from the SourceStash Server Team!');
+    res.send(`
+        <h1>Authentication using google oAuth</h1>
+        <a href=${url}>Login</a>
+    `)
 });
 
+// Oauth callback
+app.get('/oauth2callback', upload.array(), (req, res) => {
+    var oauth2Client = authClient.getOAuthClient();
+    var session = req.session;
+    var code = req.query.code; // the query param code
+    oauth2Client.getToken(code, function(err, tokens) {
+        // Now tokens contains an access_token and an optional refresh_token. Save them.
+
+        if (!err) {
+            oauth2Client.setCredentials(tokens);
+            //saving the token to current session
+            session["tokens"] = tokens;
+            res.send(`
+            &lt;h3&gt;Login successful!!&lt;/h3&gt;
+            &lt;a href="/details"&gt;Go to details page&lt;/a&gt;
+        `);
+        } else {
+            res.send(`
+            &lt;h3&gt;Login failed!!&lt;/h3&gt;
+        `);
+        }
+    });
+})
+
+// TESTING
+app.get("/details", function(req, res) {
+    var oauth2Client = authClient.getOAuthClient();
+    oauth2Client.setCredentials(req.session["tokens"]);
+
+    var p = new Promise(function(resolve, reject) {
+        plus.people.get({ userId: 'me', auth: oauth2Client }, function(err, res) {
+            resolve(res || err);
+        });
+    }).then(function(data) {
+        console.log(data)
+        res.send(`
+            &lt;h3&gt;Hello ${data.displayName}&lt;/h3&gt;
+        `);
+    })
+});
+
+
 // Login API
-app.post('/login/', upload.array(), (request, response) => {
-    console.log('Request for login.');
-    if (request.body.email == null || request.body.password == null) {
-        response.status(400).send('email and password needed');
+app.post('/login/', upload.array(), (req, res) => {
+    console.log('req for login.');
+    if (req.body.email == null || req.body.password == null) {
+        res.status(400).send('email and password needed');
         return;
     } else {
-        console.log('User: ' + request.body.email + ' attempted to log in.')
-        mysql.query('SELECT * FROM `user_basic_information` WHERE Email="' + request.body.email + '"',
+        console.log('User: ' + req.body.email + ' attempted to log in.')
+        mysql.query('SELECT * FROM `user_basic_information` WHERE Email="' + req.body.email + '"',
             (error, rows) => {
                 if (rows[0] == undefined) {
-                    response.status(404).send('Email does not exist');
+                    res.status(404).send('Email does not exist');
                 } else {
                     let account = rows[0];
                     // By now the email should be correct
-                    if (account.Password === request.body.password) {
-                        response.status(200).send('Login successfully');
+                    if (account.Password === req.body.password) {
+                        res.status(200).send('Login successfully');
                         console.log('Login successfully\n')
                     } else {
-                        response.status(401).send('Wrong password')
+                        res.status(401).send('Wrong password')
                         console.log('Wrong password\n');
                     }
                 }
@@ -92,25 +151,25 @@ app.post('/login/', upload.array(), (request, response) => {
 });
 
 // Check email availability
-app.post('/check-email', upload.array(), (request, response) => {
-    console.log('New email-checking request.');
-    if (request.body.email == null) {
-        response.status(400).send('An email is needed');
+app.post('/check-email', upload.array(), (req, res) => {
+    console.log('New email-checking req.');
+    if (req.body.email == null) {
+        res.status(400).send('An email is needed');
     } else {
-        let email = request.body.email;
-        console.log('A request is sent to check availability for: ' + email);
+        let email = req.body.email;
+        console.log('A req is sent to check availability for: ' + email);
 
         let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `email` LIKE "' + email + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
             if (rows[0] == undefined) {
                 // email is available
-                response.status(200).send({
+                res.status(200).send({
                     isAvailable: true
                 });
             } else {
                 // email is not available
-                response.status(200).send({
+                res.status(200).send({
                     isAvailable: false
                 });
             }
@@ -119,18 +178,18 @@ app.post('/check-email', upload.array(), (request, response) => {
 });
 
 // Sign up a new user API
-app.post('/signup/', upload.array(), (request, response) => {
-    console.log('New Signup Request.');
+app.post('/signup/', upload.array(), (req, res) => {
+    console.log('New Signup req.');
     if (
-        request.body.account == null ||
-        request.body.account.email == null ||
-        request.body.account.password == null
+        req.body.account == null ||
+        req.body.account.email == null ||
+        req.body.account.password == null
     ) {
-        response.status(400).send('an account object with at least email and password is needed');
+        res.status(400).send('an account object with at least email and password is needed');
         return;
     } else {
-        console.log('Attempt to create a new user for ' + request.body.account.email);
-        let account = request.body.account;
+        console.log('Attempt to create a new user for ' + req.body.account.email);
+        let account = req.body.account;
         // Fisrt check if the email (email) already exists, based on the hash
         let hashValue = hash(account.email);
         // Now check the database to see if the user already exist. Note that id is casted
@@ -139,7 +198,7 @@ app.post('/signup/', upload.array(), (request, response) => {
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
             if (rows[0] != undefined) {
-                response.status(500).send('Unable to create account for user: ' + account.email);
+                res.status(500).send('Unable to create account for user: ' + account.email);
                 console.log('Account already existed\n');
             } else {
                 // id is unique. Send the registration details to the database
@@ -154,7 +213,7 @@ app.post('/signup/', upload.array(), (request, response) => {
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
                     console.log('Account successfully created');
-                    response.status(201).send('Successfully created an account for ' + account.email);
+                    res.status(201).send('Successfully created an account for ' + account.email);
                 });
             }
         })
@@ -164,40 +223,40 @@ app.post('/signup/', upload.array(), (request, response) => {
 /**
  * DELETE THE USER - THIS API SHOULD NOT BE DISCLOSED
  */
-app.post('/delete/user/:useremail', (request, response) => {
-    console.log('Request received to delete a user\n');
-    if (request.params.useremail == null) {
+app.post('/delete/user/:useremail', (req, res) => {
+    console.log('req received to delete a user\n');
+    if (req.params.useremail == null) {
         // Note: not much detail is given to prevent attacks (?)
-        response.status(404).send('Request invalid.');
+        res.status(404).send('req invalid.');
     }
-    let userid = hash(request.params.useremail);
+    let userid = hash(req.params.useremail);
     let query = 'DELETE FROM `user_basic_information` WHERE `user_basic_information`.`userID` = "' + userid + '"';
     // Point of no return.
     mysql.query(query, (error, rows) => {
         if (error) throw error;
-        response.status(200).send('Successful');
+        res.status(200).send('Successful');
     })
 });
 
-app.get('/user', (request, response) => {
+app.get('/user', (req, res) => {
     // Query the database for the given id
     mysql.query('SELECT * FROM `user_basic_information`', function(err, rows) {
         if (err) throw err;
 
-        response.status(200).send(rows[0]);
+        res.status(200).send(rows[0]);
     });
 });
 
 /**
  * Get all stashes for a given user id
  */
-app.get('/stashes/all/:useremail', (request, response) => {
-    console.log('Request received to retrieve stashes for a user.');
-    if (request.params.useremail == null) {
-        response.status(404).send('User with the given ID does not exist');
+app.get('/stashes/all/:useremail', (req, res) => {
+    console.log('req received to retrieve stashes for a user.');
+    if (req.params.useremail == null) {
+        res.status(404).send('User with the given ID does not exist');
         return;
     }
-    let userID = hash(request.params.useremail);
+    let userID = hash(req.params.useremail);
     console.log('Retrieving stashes for user with id: ' + userID);
 
     // Now check the database to see if the user already exist. Note that id is casted
@@ -206,15 +265,15 @@ app.get('/stashes/all/:useremail', (request, response) => {
     mysql.query(checkQuery, (error, checkRows) => {
         if (error) throw error;
         if (checkRows[0] == undefined) {
-            response.status(404).send('User requested does not exist');
-            console.log('Wrong userID requested\n');
+            res.status(404).send('User reqed does not exist');
+            console.log('Wrong userID reqed\n');
         } else {
             let query = 'SELECT * FROM `stash_basic_information` WHERE `authorID` LIKE "' + userID + '"';
             mysql.query(query, (error, rows) => {
                 if (error) throw error;
 
                 // If no error, return the rows to the main app
-                response.status(200).send(rows);
+                res.status(200).send(rows);
 
                 console.log('Retrieval successful\n');
             })
@@ -227,21 +286,21 @@ app.get('/stashes/all/:useremail', (request, response) => {
 /**
  * Get a stash based on the given id
  */
-app.get('/stash/:stashid', (request, response) => {
-    console.log('Request received to retrieve a stash');
-    if (request.params.stashid == null) {
-        response.status(404).send('The stash does not exist');
+app.get('/stash/:stashid', (req, res) => {
+    console.log('req received to retrieve a stash');
+    if (req.params.stashid == null) {
+        res.status(404).send('The stash does not exist');
     }
-    let stashID = request.params.stashid;
+    let stashID = req.params.stashid;
     let query = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE"' + stashID + '"';
     mysql.query(query, (error, rows) => {
         console.log(rows);
         if (error) throw error;
 
         if (rows[0] == undefined) {
-            response.status(404).send('Stash does not exist');
+            res.status(404).send('Stash does not exist');
         } else {
-            response.status(200).send(rows[0]);
+            res.status(200).send(rows[0]);
         }
     })
 });
@@ -249,27 +308,27 @@ app.get('/stash/:stashid', (request, response) => {
 /**
  * Create a new stash based on the given information
  */
-app.post('/stash/new', (request, response) => {
-    console.log('New request to create a stash.');
+app.post('/stash/new', (req, res) => {
+    console.log('New req to create a stash.');
     if (
-        request.body.stash.authorID == null ||
-        request.body.stash.title == null ||
-        request.body.stash.description == null
+        req.body.stash.authorID == null ||
+        req.body.stash.title == null ||
+        req.body.stash.description == null
     ) {
-        response.status(400).send('A Stash needs author id, title and description\n');
+        res.status(400).send('A Stash needs author id, title and description\n');
         return;
     } else {
         // Check if the stash already exists
-        let stashTitle = request.body.stash.title;
-        let authorID = request.body.stash.authorID;
-        let description = request.body.stash.description;
+        let stashTitle = req.body.stash.title;
+        let authorID = req.body.stash.authorID;
+        let description = req.body.stash.description;
         let stashID = hash(stashTitle);
         let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE "' + stashID + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
 
             if (rows.length != 0) {
-                response.status(400).send('Stash already existed.');
+                res.status(400).send('Stash already existed.');
                 console.log('Stash already existed.\n');
                 return;
             } else {
@@ -283,7 +342,7 @@ app.post('/stash/new', (request, response) => {
                     ')';
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
-                    response.status(201).send('Stash successfully created.');
+                    res.status(201).send('Stash successfully created.');
                     console.log('Stash successfully created.\n');
                 })
 
@@ -295,24 +354,24 @@ app.post('/stash/new', (request, response) => {
 /**
  * Delete a stash based on the given stash information
  */
-app.post('/stash/delete', (request, response) => {
-    console.log('New request to delete a stash.');
+app.post('/stash/delete', (req, res) => {
+    console.log('New req to delete a stash.');
     if (
-        request.body.stash.stashID == null ||
-        request.body.stash.title == null ||
-        request.body.stash.description == null
+        req.body.stash.stashID == null ||
+        req.body.stash.title == null ||
+        req.body.stash.description == null
     ) {
-        response.status(400).send('A Stash needs author id, title and description\n');
+        res.status(400).send('A Stash needs author id, title and description\n');
         return;
     } else {
         // Check if the stash exists
-        let stashID = request.body.stash.stashID;
+        let stashID = req.body.stash.stashID;
         let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE "' + stashID + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
             if (rows[0] == undefined) {
                 // The stash does not exist
-                response.status(400).send('The stash does not exist');
+                res.status(400).send('The stash does not exist');
                 console.log('The stash does not exist\n');
             } else {
                 // Delete the stash
@@ -320,7 +379,7 @@ app.post('/stash/delete', (request, response) => {
                     '`stash_basic_information`.`stashID` = "' + stashID + '"';
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
-                    response.status(201).send('Stash successfully deleted');
+                    res.status(201).send('Stash successfully deleted');
                     console.log('Stash successfully deleted.\n');
                 })
             }
