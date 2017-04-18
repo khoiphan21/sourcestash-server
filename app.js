@@ -114,6 +114,7 @@ app.get("/details", function(req, res) {
             resolve(res || err);
         });
     }).then(function(data) {
+        console.log('\nData received:');
         console.log(data)
         res.send(`
             <h3>Hello ${data.displayName}</h3>
@@ -149,6 +150,22 @@ app.post('/login/', upload.array(), (req, res) => {
         )
     }
 });
+
+/**
+ * LOGIN API WITH GOOGLE
+ */
+app.post('/login/google', upload.array(), (req, res) => {
+    console.log('Code to be used is: ');
+    console.log(req.params.code);
+    res.status(200).send('Code received');
+})
+
+/**
+ * SIGN UP API WITH GOOGLE
+ */
+app.post('/signup/google', upload.array(), (req, res) => {
+
+})
 
 // Check email availability
 app.post('/check-email', upload.array(), (req, res) => {
@@ -394,6 +411,7 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`App listening on port ${PORT}`);
     console.log('Press Ctrl+C to quit.');
+    console.log('hashed string: ' + hash('%Eh0BEBoFBxcZCRUIFCIlHC4CCg0MCwMTEhEPDgQYBiIMTTd2NWRHUGtyVk09'));
 });
 
 /**
