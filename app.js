@@ -71,7 +71,6 @@ mysql.connect(function(err) {
  * START DEFINING RESTFUL API
  */
 app.get('/', (req, res) => {
-    console.log(req.params);
     var url = authClient.getAuthUrl();
     // res.status(200).send('Hello, from the SourceStash Server Team!');
     res.send(`
@@ -87,18 +86,19 @@ app.get('/oauth2callback', upload.array(), (req, res) => {
     var code = req.query.code; // the query param code
     oauth2Client.getToken(code, function(err, tokens) {
         // Now tokens contains an access_token and an optional refresh_token. Save them.
+        console.log(tokens);
 
         if (!err) {
             oauth2Client.setCredentials(tokens);
             //saving the token to current session
             session["tokens"] = tokens;
             res.send(`
-            &lt;h3&gt;Login successful!!&lt;/h3&gt;
-            &lt;a href="/details"&gt;Go to details page&lt;/a&gt;
+            <h3>Login successful!!</h3>
+            <a href="/details">Go to details page</a>
         `);
         } else {
             res.send(`
-            &lt;h3&gt;Login failed!!&lt;/h3&gt;
+            <h3>Login failed!!</h3>
         `);
         }
     });
@@ -116,7 +116,7 @@ app.get("/details", function(req, res) {
     }).then(function(data) {
         console.log(data)
         res.send(`
-            &lt;h3&gt;Hello ${data.displayName}&lt;/h3&gt;
+            <h3>Hello ${data.displayName}</h3>
         `);
     })
 });
