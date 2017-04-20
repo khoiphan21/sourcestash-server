@@ -38,11 +38,11 @@ app.use((req, res, next) => {
     next();
 });
 //using session in express
-app.use(Session({
-    secret: 'your-random-secret-19890913007',
-    resave: true,
-    saveUninitialized: true
-}));
+// app.use(Session({
+//     secret: 'your-random-secret-19890913007',
+//     resave: true,
+//     saveUninitialized: true
+// }));
 
 var mysql = mysqlModule.createConnection({
     // LOCALHOST FOR DEVELOPMENT PURPOSES
@@ -131,14 +131,14 @@ app.post('/login/', upload.array(), (req, res) => {
         return;
     } else {
         console.log('User: ' + req.body.email + ' attempted to log in.')
-        mysql.query('SELECT * FROM `user_basic_information` WHERE Email="' + req.body.email + '"',
+        mysql.query('SELECT * FROM `user_basic_information` WHERE email="' + req.body.email + '"',
             (error, rows) => {
                 if (rows[0] == undefined) {
-                    res.status(404).send('Email does not exist');
+                    res.status(404).send('email does not exist');
                 } else {
                     let account = rows[0];
                     // By now the email should be correct
-                    if (account.Password === req.body.password) {
+                    if (account.password === req.body.password) {
                         res.status(200).send('Login successfully');
                         console.log('Login successfully\n')
                     } else {
@@ -153,18 +153,64 @@ app.post('/login/', upload.array(), (req, res) => {
 
 /**
  * LOGIN API WITH GOOGLE
+ * 
+ * This doubles up as a signup call, if the user has not been registered
  */
-app.post('/login/google', upload.array(), (req, res) => {
-    console.log('Code to be used is: ');
-    console.log(req.params.code);
-    res.status(200).send('Code received');
-})
+app.post('/login/google/', upload.array(), (req, res) => {
+    console.log('Request received for Google login');
+    // The request object needs: social id, email, firstname, lastname
+    // Password will be the social id
+    if (
+        req.body.account == null ||
+        req.body.account.email == null ||
+        req.body.account.social_id == null ||
+        req.body.account.firstname == null ||
+        req.body.account.lastname == null
+    ) {
+        console.log('Parameters missing from request');
+        res.status(400).send('Email, ID, Firstname and Lastname are all required');
+    } else {
+        let account = {
+            email: req.body.account.email,
+            social_id: req.body.account.social_id,
+            firstname: req.body.account.firstname,
+            lastname: req.body.account.lastname
+        };
+        let hashValue = hash(account.email);
 
-/**
- * SIGN UP API WITH GOOGLE
- */
-app.post('/signup/google', upload.array(), (req, res) => {
+        // Check if the user is already signed up
+        let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `email` LIKE "' + account.email + '"';
+        mysql.query(checkQuery, (error, rows) => {
+            if (error) throw error;
+            if (rows[0] == undefined) {
+                // The user has not been signed up. Sign up the user
+                let query = 'INSERT INTO `user_basic_information` ' +
+                    '(`user_id`, `email`, `password`, `firstname`, `lastname`) VALUES ' + '(' +
+                    '\'' + hashValue + '\',' +
+                    '\'' + account.email + '\',' +
+                    '\'' + account.social_id + '\',' +
+                    '\'' + account.firstname + '\',' +
+                    '\'' + account.lastname + '\'' +
+                    ')';
+                mysql.query(query, (err, rows) => {
+                    if (err) throw err;
+                    console.log('Login successful');
+                    res.status(200).send('Login successful');
+                });
+            } else {
+                // Check if the social_id matches the password
+                let password = rows[0].password;
+                if (account.social_id == password) {
+                    console.log('Login successful');
+                    res.status(200).send('Login successful');
+                } else {
+                    console.log('social_id does not match password');
+                    res.status(400).send('social id does not match the stored value');
+                }
+            }
+        })
 
+    }
 })
 
 // Check email availability
@@ -211,7 +257,7 @@ app.post('/signup/', upload.array(), (req, res) => {
         let hashValue = hash(account.email);
         // Now check the database to see if the user already exist. Note that id is casted
         // to a string. 
-        let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `userID` LIKE "' + hashValue + '"';
+        let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` LIKE "' + hashValue + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
             if (rows[0] != undefined) {
@@ -220,7 +266,7 @@ app.post('/signup/', upload.array(), (req, res) => {
             } else {
                 // id is unique. Send the registration details to the database
                 let query = 'INSERT INTO `user_basic_information` ' +
-                    '(`userID`, `Email`, `Password`, `Firstname`, `Lastname`) VALUES ' + '(' +
+                    '(`user_id`, `email`, `password`, `firstname`, `lastname`) VALUES ' + '(' +
                     '\'' + hashValue + '\',' +
                     '\'' + account.email + '\',' +
                     '\'' + account.password + '\',' +
@@ -247,21 +293,18 @@ app.post('/delete/user/:useremail', (req, res) => {
         res.status(404).send('req invalid.');
     }
     let userid = hash(req.params.useremail);
-    let query = 'DELETE FROM `user_basic_information` WHERE `user_basic_information`.`userID` = "' + userid + '"';
+    let query = 'DELETE FROM `user_basic_information` WHERE `user_basic_information`.`user_id` = "' + userid + '"';
     // Point of no return.
     mysql.query(query, (error, rows) => {
         if (error) throw error;
         res.status(200).send('Successful');
-    })
+    });
 });
 
-app.get('/user', (req, res) => {
-    // Query the database for the given id
-    mysql.query('SELECT * FROM `user_basic_information`', function(err, rows) {
-        if (err) throw err;
-
-        res.status(200).send(rows[0]);
-    });
+app.post('/test', (req, res) => {
+    console.log('request for server test received');
+    // For testing server connection
+    res.status(200).send('Server Available');
 });
 
 /**
@@ -273,19 +316,19 @@ app.get('/stashes/all/:useremail', (req, res) => {
         res.status(404).send('User with the given ID does not exist');
         return;
     }
-    let userID = hash(req.params.useremail);
-    console.log('Retrieving stashes for user with id: ' + userID);
+    let user_id = hash(req.params.useremail);
+    console.log('Retrieving stashes for user with id: ' + user_id);
 
     // Now check the database to see if the user already exist. Note that id is casted
     // to a string. 
-    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `userID` LIKE "' + userID + '"';
+    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` LIKE "' + user_id + '"';
     mysql.query(checkQuery, (error, checkRows) => {
         if (error) throw error;
         if (checkRows[0] == undefined) {
             res.status(404).send('User reqed does not exist');
-            console.log('Wrong userID reqed\n');
+            console.log('Wrong user_id reqed\n');
         } else {
-            let query = 'SELECT * FROM `stash_basic_information` WHERE `authorID` LIKE "' + userID + '"';
+            let query = 'SELECT * FROM `stash_basic_information` WHERE `authorID` LIKE "' + user_id + '"';
             mysql.query(query, (error, rows) => {
                 if (error) throw error;
 
@@ -411,7 +454,6 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`App listening on port ${PORT}`);
     console.log('Press Ctrl+C to quit.');
-    console.log('hashed string: ' + hash('%Eh0BEBoFBxcZCRUIFCIlHC4CCg0MCwMTEhEPDgQYBiIMTTd2NWRHUGtyVk09'));
 });
 
 /**
