@@ -16,11 +16,15 @@
 // [START app]
 'use strict';
 
+// Google API
 var google = require('googleapis');
 var plus = google.plus('v1');
-var authClient = require('./authClient');
 
-let mysqlModule = require('mysql');
+// App Services
+var authClient = require('./services/authClient');
+var sourceService = require('./services/sourceService');
+var mysql = require('./services/mysql');
+
 var Session = require('express-session');
 let bodyParser = require('body-parser');
 let multer = require('multer');
@@ -31,7 +35,7 @@ const app = express();
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({
     extended: true
-})); // for parsing multipart/form-Data
+})); // for parsing multipart/form-data
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, X-reqed-With, Accept')
@@ -44,29 +48,6 @@ app.use((req, res, next) => {
 //     saveUninitialized: true
 // }));
 
-var mysql = mysqlModule.createConnection({
-    // LOCALHOST FOR DEVELOPMENT PURPOSES
-    host: "104.199.209.1",
-    user: "root",
-    password: "sourcestashuq2017",
-    database: 'source_stash'
-});
-
-mysql.connect(function(err) {
-    if (err) {
-        console.log('Error connecting to Db');
-        throw err;
-        return;
-    }
-    console.log('Database connection established');
-});
-
-// mysql.end(function(err) {
-//   // The connection is terminated gracefully
-//   // Ensures all previously enqueued queries are still
-//   // before sending a COM_QUIT packet to the MySQL server.
-// });
-
 /**
  * START DEFINING RESTFUL API
  */
@@ -78,6 +59,12 @@ app.get('/', (req, res) => {
         <a href=${url}>Login</a>
     `)
 });
+
+/**
+ * API FOR SOURCE SERVICES
+ */
+// app.post('/source/*', sourceService.handlePostRequest);
+app.post('/source/new', sourceService.createNewSource);
 
 // Oauth callback
 app.get('/oauth2callback', upload.array(), (req, res) => {
