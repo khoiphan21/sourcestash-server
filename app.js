@@ -66,6 +66,8 @@ app.get('/', (req, res) => {
  */
 // app.post('/source/*', sourceService.handlePostRequest);
 app.post('/source/new', sourceService.createNewSource);
+app.post('/source/all/:stash_id', sourceService.getSourcesForStash);
+app.post('/source/delete/:source_id', sourceService.deleteSource);
 
 // Oauth callback
 app.get('/oauth2callback', upload.array(), (req, res) => {

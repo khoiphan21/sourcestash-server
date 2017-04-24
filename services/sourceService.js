@@ -3,6 +3,99 @@
 var mysql = require('./mysql');
 var logic = require('./logic');
 
+function addTag(source_id, tag) {
+    let checkQuery = 'SELECT * FROM `tags_list` WHERE ' +
+        '`source_id`=\'' + source_id + '\' AND `tag`=\'' + tag + '\'';
+    mysql.query(checkQuery, (error, rows) => {
+        if (error) throw error;
+        if (rows[0] == undefined) {
+            // tag does not exist in the source. attempt to update table
+            let query = 'INSERT INTO `tags_list` (`tag`, `source_id`) VALUES (' +
+                '\'' + tag + '\', ' +
+                '\'' + source_id + '\')';
+            mysql.query(query, (error, rows) => {
+                if (error) throw error;
+            })
+        }
+    })
+}
+
+/**
+ * Update the source_children table, to update the parent of a source
+ * @param {*} source_id 
+ * @param {*} source_child_id 
+ */
+function updateParentSource(source_id, source_child_id) {
+    let checkQuery = 'SELECT * FROM `source_children` WHERE ' +
+        '`source_id`=\'' + source_id + '\' AND `source_child_id`= \'' + source_child_id + '\'';
+    mysql.query(checkQuery, (error, rows) => {
+        if (error) throw error;
+        if (rows[0] == undefined) {
+            let query = 'INSERT INTO `source_children` (`source_id`, `source_child_id`) VALUES (' +
+                '\'' + source_id + '\', ' +
+                '\'' + source_child_id + '\')';
+            mysql.query(query, (error, rows) => {
+                if (error) throw error;
+            })
+        }
+    });
+}
+
+// TELL A SOURCE THAT ITS PARENT HAS CHANGED
+function removeParentSource() {
+
+}
+
+// GET ALL SOURCES FOR A CERTAIN STASH
+function getSourcesForStash(req, res, next) {
+    console.log('Request received to retrieve sources.');
+    let stash_id = req.body.stash_id;
+
+    if (stash_id == null) {
+        res.status(400).send('Missing stash id parameter');
+        return;
+    }
+
+    let query = 'SELECT * FROM `source_basic_information` WHERE ' +
+        '`source_basic_information`.`stash_id` = "' + stash_id + '"';
+    mysql.query(query, (error, rows) => {
+        if (error) throw error;
+        console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
+        res.status(200).send(rows);
+    })
+}
+
+// DELETE A SOURCE
+function deleteSource(req, res, next) {
+    console.log('Request to delete source received.');
+
+    let source_id = req.body.source_id;
+    if (source_id == null) {
+        res.status(400).send('Source ID is misssing');
+        return;
+    }
+
+    let checkQuery = 'SELECT * FROM `source_basic_information` WHERE ' +
+        '`source_basic_information`.`source_id` = "' + source_id + '"';
+    mysql.query(checkQuery, (error, rows) => {
+        if (error) throw error;
+        if (rows[0] != undefined) {
+            // The source exist. Delete it now.
+            let query = 'DELETE FROM `source_basic_information` WHERE ' +
+                '`source_basic_information`.`source_id`="' + source_id + '"';
+            mysql.query(query, (error, rows) => {
+                if (error) throw error;
+                console.log('Source successfully deleted\n');
+                res.status(200).send('Source successfully deleted');
+            })
+        } else {
+            console.log('Source not found.\n');
+            res.status(404).send('Source does not exist');
+        }
+    })
+}
+
+// CREATE A NEW SOURCE
 function createNewSource(req, res, next) {
     // A new source must have these values:
     let source = req.body.source;
@@ -55,20 +148,28 @@ function createNewSource(req, res, next) {
                         console.log('error with insert query in sourceService');
                         throw error;
                     }
-                    console.log(rows[0]);
 
-                    res.status(200).send(rows[0]);
+                    // Add the id to the source object
+                    source.id = sourceId;
+                    res.status(201).send(source);
                 })
 
                 // Update the table of tags
+                for (let i = 0; i < source.tags.length; i++) {
+                    addTag(sourceId, source.tags[i]);
+                }
 
                 // Update the table of parent and child source ids
+                if (source.parent_id != '') {
+                    updateParentSource(source.parent_id, sourceId);
+                }
             }
         })
     }
-
 }
 
 module.exports = {
-    createNewSource: createNewSource
+    createNewSource: createNewSource,
+    getSourcesForStash: getSourcesForStash,
+    deleteSource: deleteSource
 }
