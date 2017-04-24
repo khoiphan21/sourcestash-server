@@ -24,6 +24,7 @@ var plus = google.plus('v1');
 var authClient = require('./services/authClient');
 var sourceService = require('./services/sourceService');
 var mysql = require('./services/mysql');
+var logic = require('./services/logic');
 
 var Session = require('express-session');
 let bodyParser = require('body-parser');
@@ -163,7 +164,7 @@ app.post('/login/google/', upload.array(), (req, res) => {
             firstname: req.body.account.firstname,
             lastname: req.body.account.lastname
         };
-        let hashValue = hash(account.email);
+        let hashValue = logic.hash(account.email);
 
         // Check if the user is already signed up
         let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `email` LIKE "' + account.email + '"';
@@ -241,7 +242,7 @@ app.post('/signup/', upload.array(), (req, res) => {
         console.log('Attempt to create a new user for ' + req.body.account.email);
         let account = req.body.account;
         // Fisrt check if the email (email) already exists, based on the hash
-        let hashValue = hash(account.email);
+        let hashValue = logic.hash(account.email);
         // Now check the database to see if the user already exist. Note that id is casted
         // to a string. 
         let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` LIKE "' + hashValue + '"';
@@ -253,7 +254,7 @@ app.post('/signup/', upload.array(), (req, res) => {
             } else {
                 // id is unique. Send the registration details to the database
                 let query = 'INSERT INTO `user_basic_information` ' +
-                    '(`user_id`, `email`, `password`, `firstname`, `lastname`) VALUES ' + '(' +
+                    '(`user_id`, `email`, `password`, `firstname`, `lastname`) VALUES (' +
                     '\'' + hashValue + '\',' +
                     '\'' + account.email + '\',' +
                     '\'' + account.password + '\',' +
@@ -279,7 +280,7 @@ app.post('/delete/user/:useremail', (req, res) => {
         // Note: not much detail is given to prevent attacks (?)
         res.status(404).send('req invalid.');
     }
-    let userid = hash(req.params.useremail);
+    let userid = logic.hash(req.params.useremail);
     let query = 'DELETE FROM `user_basic_information` WHERE `user_basic_information`.`user_id` = "' + userid + '"';
     // Point of no return.
     mysql.query(query, (error, rows) => {
@@ -303,7 +304,7 @@ app.get('/stashes/all/:useremail', (req, res) => {
         res.status(404).send('User with the given ID does not exist');
         return;
     }
-    let user_id = hash(req.params.useremail);
+    let user_id = logic.hash(req.params.useremail);
     console.log('Retrieving stashes for user with id: ' + user_id);
 
     // Now check the database to see if the user already exist. Note that id is casted
@@ -315,7 +316,7 @@ app.get('/stashes/all/:useremail', (req, res) => {
             res.status(404).send('User reqed does not exist');
             console.log('Wrong user_id reqed\n');
         } else {
-            let query = 'SELECT * FROM `stash_basic_information` WHERE `authorID` LIKE "' + user_id + '"';
+            let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` LIKE "' + user_id + '"';
             mysql.query(query, (error, rows) => {
                 if (error) throw error;
 
@@ -333,13 +334,13 @@ app.get('/stashes/all/:useremail', (req, res) => {
 /**
  * Get a stash based on the given id
  */
-app.get('/stash/:stashid', (req, res) => {
+app.get('/stash/:stash_id', (req, res) => {
     console.log('req received to retrieve a stash');
-    if (req.params.stashid == null) {
+    if (req.params.stash_id == null) {
         res.status(404).send('The stash does not exist');
     }
-    let stashID = req.params.stashid;
-    let query = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE"' + stashID + '"';
+    let stash_id = req.params.stash_id;
+    let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE"' + stash_id + '"';
     mysql.query(query, (error, rows) => {
         console.log(rows);
         if (error) throw error;
@@ -358,7 +359,7 @@ app.get('/stash/:stashid', (req, res) => {
 app.post('/stash/new', (req, res) => {
     console.log('New req to create a stash.');
     if (
-        req.body.stash.authorID == null ||
+        req.body.stash.author_id == null ||
         req.body.stash.title == null ||
         req.body.stash.description == null
     ) {
@@ -367,10 +368,10 @@ app.post('/stash/new', (req, res) => {
     } else {
         // Check if the stash already exists
         let stashTitle = req.body.stash.title;
-        let authorID = req.body.stash.authorID;
+        let author_id = req.body.stash.author_id;
         let description = req.body.stash.description;
-        let stashID = hash(stashTitle);
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE "' + stashID + '"';
+        let stash_id = logic.hash(stashTitle);
+        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
 
@@ -381,11 +382,11 @@ app.post('/stash/new', (req, res) => {
             } else {
                 // Add the stash to the database
                 let query = 'INSERT INTO `stash_basic_information` ' +
-                    '(`stashID`, `title`, `description`, `authorID`) VALUES ' + '(' +
-                    '\'' + stashID + '\',' +
+                    '(`stash_id`, `title`, `description`, `author_id`) VALUES ' + '(' +
+                    '\'' + stash_id + '\',' +
                     '\'' + stashTitle + '\',' +
                     '\'' + description + '\',' +
-                    '\'' + authorID + '\'' +
+                    '\'' + author_id + '\'' +
                     ')';
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
@@ -404,7 +405,7 @@ app.post('/stash/new', (req, res) => {
 app.post('/stash/delete', (req, res) => {
     console.log('New req to delete a stash.');
     if (
-        req.body.stash.stashID == null ||
+        req.body.stash.stash_id == null ||
         req.body.stash.title == null ||
         req.body.stash.description == null
     ) {
@@ -412,8 +413,8 @@ app.post('/stash/delete', (req, res) => {
         return;
     } else {
         // Check if the stash exists
-        let stashID = req.body.stash.stashID;
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stashID` LIKE "' + stashID + '"';
+        let stash_id = req.body.stash.stash_id;
+        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
         mysql.query(checkQuery, (error, rows) => {
             if (error) throw error;
             if (rows[0] == undefined) {
@@ -423,7 +424,7 @@ app.post('/stash/delete', (req, res) => {
             } else {
                 // Delete the stash
                 let query = 'DELETE FROM `stash_basic_information` WHERE ' +
-                    '`stash_basic_information`.`stashID` = "' + stashID + '"';
+                    '`stash_basic_information`.`stash_id` = "' + stash_id + '"';
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
                     res.status(201).send('Stash successfully deleted');
@@ -443,15 +444,6 @@ app.listen(PORT, () => {
     console.log('Press Ctrl+C to quit.');
 });
 
-/**
- * Hash a string to return a (hopefully) unique id
- */
-function hash(string) {
-    let h = 0;
-    for (let i = 0; i < string.length; i++) {
-        h = 3 * h + string.charCodeAt(i)
-    }
-    return h;
-}
+
 
 // [END app]
