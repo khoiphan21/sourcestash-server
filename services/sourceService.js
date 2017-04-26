@@ -41,9 +41,41 @@ function updateParentSource(source_id, source_child_id) {
     });
 }
 
-// TELL A SOURCE THAT ITS PARENT HAS CHANGED
-function removeParentSource() {
+// UPDATE THE POSITION OF A SOURCE
+function updatePosition(req, res, next) {
+    console.log('Request received to update a location of a source.');
+    let coords = req.body.coords;
+    if (coords == null ||
+        coords.source_id == null ||
+        coords.xPosition == null ||
+        coords.yPosition == null
+    ) {
+        console.log('Missing parameters\n');
+        res.status(400).send('Some parameters are missing. "source_id", "xPosition" and "yPosition" are needed.');
+    }
 
+    let checkQuery = 'SELECT * FROM `source_basic_information` WHERE `source_basic_information`.`source_id` = "' +
+        coords.source_id + '"';
+    mysql.query(checkQuery, (error, rows) => {
+        if (error) throw error;
+        if (rows[0] == undefined) {
+            // The source with the given id does not exist
+            console.log('Source with the given id does not exist \n');
+            res.status(400).send('Source with the given id does not exist');
+        } else {
+            // Update the position
+            let query = 'UPDATE `source_basic_information` SET `xPosition` = ' +
+                '\'' + coords.xPosition + '\',' + '`yPosition` = ' +
+                '\'' + coords.yPosition + '\'' +
+                'WHERE `source_basic_information`.`source_id` = \'' + coords.source_id + '\'';
+            mysql.query(query, (error, rows) => {
+                if (error) throw error;
+
+                console.log('Successfully updated location of source: ' + coords.source_id);
+                res.status(200).send('Successfully updated location for source: ' + coords.source_id);
+            });
+        }
+    })
 }
 
 // GET ALL SOURCES FOR A CERTAIN STASH
@@ -95,6 +127,11 @@ function deleteSource(req, res, next) {
     })
 }
 
+// UPDATE THE VALUES OF A SOURCE
+function updateSource(req, res, next) {
+
+}
+
 // CREATE A NEW SOURCE
 function createNewSource(req, res, next) {
     // A new source must have these values:
@@ -130,8 +167,9 @@ function createNewSource(req, res, next) {
                 // Calculate the source id
                 let sourceId = logic.hash(source.title);
                 let query = 'INSERT INTO `source_basic_information` ' +
-                    '(`source_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
+                    '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
                     '\'' + sourceId + '\',' +
+                    '\'' + source.parent_id + '\',' +
                     '\'' + source.stash_id + '\',' +
                     '\'' + source.author_id + '\',' +
                     '\'' + source.hyperlink + '\',' +
@@ -159,10 +197,6 @@ function createNewSource(req, res, next) {
                     addTag(sourceId, source.tags[i]);
                 }
 
-                // Update the table of parent and child source ids
-                if (source.parent_id != '') {
-                    updateParentSource(source.parent_id, sourceId);
-                }
             }
         })
     }
@@ -171,5 +205,6 @@ function createNewSource(req, res, next) {
 module.exports = {
     createNewSource: createNewSource,
     getSourcesForStash: getSourcesForStash,
-    deleteSource: deleteSource
+    deleteSource: deleteSource,
+    updatePosition: updatePosition
 }
