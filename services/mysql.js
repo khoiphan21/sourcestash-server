@@ -2,22 +2,21 @@
 
 let mysqlModule = require('mysql');
 
-let config = {
-    // LOCALHOST FOR DEVELOPMENT PURPOSES
-    // host: '104.199.209.1',
-    // user: 'root',
-    // password: 'sourcestashuq2017',
-    // database: 'source_stash'
-
-    // host: "104.199.209.1",
-    // SOCKETPATH FOR DEPLOYMENT
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE
-};
-
+let config;
 if (process.env.INSTANCE_CONNECTION_NAME) {
+    config = {
+        user: process.env.MYSQL_USER,
+        password: process.env.MYSQL_PASSWORD,
+        database: process.env.MYSQL_DATABASE
+    }
     config.socketPath = `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`;
+} else {
+    config = {
+        host: '104.199.209.1',
+        user: 'root',
+        password: 'sourcestashuq2017',
+        database: 'source_stash'
+    }
 }
 
 var mysql = mysqlModule.createConnection(config);
