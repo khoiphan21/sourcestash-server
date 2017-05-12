@@ -112,11 +112,14 @@ function deleteSource(req, res, next) {
     mysql.query(checkQuery, (error, rows) => {
         if (error) throw error;
         if (rows[0] != undefined) {
-            // The source exist. Delete it now.
+            // The source exist. First swap the parent_id
+            let swapQuery = ''
+                // Delete it now.
             let query = 'DELETE FROM `source_basic_information` WHERE ' +
                 '`source_basic_information`.`source_id`="' + source_id + '"';
             mysql.query(query, (error, rows) => {
                 if (error) throw error;
+
                 console.log('Source successfully deleted\n');
                 res.status(200).send('Source successfully deleted');
             })

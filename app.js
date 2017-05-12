@@ -22,7 +22,9 @@ var plus = google.plus('v1');
 
 // App Services
 var authClient = require('./services/authClient');
+var authService = require('./services/authService');
 var sourceService = require('./services/sourceService');
+var stashService = require('./services/stashService');
 var mysql = require('./services/mysql');
 var logic = require('./services/logic');
 
@@ -69,6 +71,19 @@ app.post('/source/new', sourceService.createNewSource);
 app.post('/source/all/:stash_id', sourceService.getSourcesForStash);
 app.post('/source/delete/:source_id', sourceService.deleteSource);
 app.post('/source/update/position', sourceService.updatePosition);
+
+/**
+ * API FOR STASH SERVICES
+ */
+app.get('/stashes/all/:useremail', stashService.getStashesForUser); // Get all stashes for a given user id
+app.get('/stash/:stash_id', stashService.getStash); // Get a stash based on the given id
+app.post('/stash/new', stashService.createNewStash); // Create a new stash
+app.post('/stash/delete', stashService.deleteStash); // Delete a stash
+
+/**
+ * API FOR AUTH SERVICES
+ */
+app.post('/user/id', authService.getUserID);
 
 // Oauth callback
 app.get('/oauth2callback', upload.array(), (req, res) => {
@@ -296,146 +311,6 @@ app.post('/test', (req, res) => {
     console.log('request for server test received');
     // For testing server connection
     res.status(200).send('Server Available');
-});
-
-/**
- * Get all stashes for a given user id
- */
-app.get('/stashes/all/:useremail', (req, res) => {
-    console.log('req received to retrieve stashes for a user.');
-    if (req.params.useremail == null) {
-        res.status(404).send('User with the given ID does not exist');
-        return;
-    }
-    let user_id = logic.hash(req.params.useremail);
-    console.log('Retrieving stashes for user with id: ' + user_id);
-
-    // Now check the database to see if the user already exist. Note that id is casted
-    // to a string. 
-    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` LIKE "' + user_id + '"';
-    mysql.query(checkQuery, (error, checkRows) => {
-        if (error) throw error;
-        if (checkRows[0] == undefined) {
-            res.status(404).send('User reqed does not exist');
-            console.log('Wrong user_id reqed\n');
-        } else {
-            let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` LIKE "' + user_id + '"';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-
-                // If no error, return the rows to the main app
-                res.status(200).send(rows);
-
-                console.log('Retrieval successful\n');
-            })
-        }
-    })
-
-
-});
-
-/**
- * Get a stash based on the given id
- */
-app.get('/stash/:stash_id', (req, res) => {
-    console.log('req received to retrieve a stash');
-    if (req.params.stash_id == null) {
-        res.status(404).send('The stash does not exist');
-    }
-    let stash_id = req.params.stash_id;
-    let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE"' + stash_id + '"';
-    mysql.query(query, (error, rows) => {
-        console.log(rows);
-        if (error) throw error;
-
-        if (rows[0] == undefined) {
-            res.status(404).send('Stash does not exist');
-        } else {
-            res.status(200).send(rows[0]);
-        }
-    })
-});
-
-/**
- * Create a new stash based on the given information
- */
-app.post('/stash/new', (req, res) => {
-    console.log('New req to create a stash.');
-    if (
-        req.body.stash.author_id == null ||
-        req.body.stash.title == null ||
-        req.body.stash.description == null
-    ) {
-        res.status(400).send('A Stash needs author id, title and description\n');
-        return;
-    } else {
-        // Check if the stash already exists
-        let stashTitle = req.body.stash.title;
-        let author_id = req.body.stash.author_id;
-        let description = req.body.stash.description;
-        let stash_id = logic.hash(stashTitle);
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
-
-            if (rows.length != 0) {
-                res.status(400).send('Stash already existed.');
-                console.log('Stash already existed.\n');
-                return;
-            } else {
-                // Add the stash to the database
-                let query = 'INSERT INTO `stash_basic_information` ' +
-                    '(`stash_id`, `title`, `description`, `author_id`) VALUES ' + '(' +
-                    '\'' + stash_id + '\',' +
-                    '\'' + stashTitle + '\',' +
-                    '\'' + description + '\',' +
-                    '\'' + author_id + '\'' +
-                    ')';
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(201).send('Stash successfully created.');
-                    console.log('Stash successfully created.\n');
-                })
-
-            }
-        })
-    }
-});
-
-/**
- * Delete a stash based on the given stash information
- */
-app.post('/stash/delete', (req, res) => {
-    console.log('New req to delete a stash.');
-    if (
-        req.body.stash.stash_id == null ||
-        req.body.stash.title == null ||
-        req.body.stash.description == null
-    ) {
-        res.status(400).send('A Stash needs author id, title and description\n');
-        return;
-    } else {
-        // Check if the stash exists
-        let stash_id = req.body.stash.stash_id;
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
-            if (rows[0] == undefined) {
-                // The stash does not exist
-                res.status(400).send('The stash does not exist');
-                console.log('The stash does not exist\n');
-            } else {
-                // Delete the stash
-                let query = 'DELETE FROM `stash_basic_information` WHERE ' +
-                    '`stash_basic_information`.`stash_id` = "' + stash_id + '"';
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(201).send('Stash successfully deleted');
-                    console.log('Stash successfully deleted.\n');
-                })
-            }
-        })
-    }
 });
 
 /********************
