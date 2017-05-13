@@ -135,6 +135,45 @@ function updateSource(req, res, next) {
 
 }
 
+// CREATE A ROOT SOURCE
+function createRootSource(title, stash_id, author_id) {
+    let source = {};
+    // Populate the source object with the values
+    source.id = logic.hash(title);
+    source.parent_id = '';
+    source.stash_id = stash_id;
+    source.author_id = author_id;
+    source.hyperlink = '';
+    source.title = title;
+    source.description = '';
+    source.type = 'root';
+    source.difficulty = '';
+    source.xPosition = 0;
+    source.yPosition = 0;
+
+    let query = 'INSERT INTO `source_basic_information` ' +
+        '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
+        '\'' + source.id + '\',' +
+        '\'' + source.parent_id + '\',' +
+        '\'' + source.stash_id + '\',' +
+        '\'' + source.author_id + '\',' +
+        '\'' + source.hyperlink + '\',' +
+        '\'' + source.title + '\',' +
+        '\'' + source.description + '\',' +
+        '\'' + source.type + '\',' +
+        '\'' + source.difficulty + '\',' +
+        source.xPosition + ',' +
+        source.yPosition +
+        ')';
+    console.log(query);
+    mysql.query(query, (error, rows) => {
+        if (error) {
+            console.log('error with insert query in createRootSource');
+            throw error;
+        }
+    })
+}
+
 // CREATE A NEW SOURCE
 function createNewSource(req, res, next) {
     // A new source must have these values:
@@ -183,7 +222,6 @@ function createNewSource(req, res, next) {
                     source.xPosition + ',' +
                     source.yPosition +
                     ')';
-                console.log(query);
                 mysql.query(query, (error, rows) => {
                     if (error) {
                         console.log('error with insert query in sourceService');
@@ -206,6 +244,7 @@ function createNewSource(req, res, next) {
 }
 
 module.exports = {
+    createRootSource: createRootSource,
     createNewSource: createNewSource,
     getSourcesForStash: getSourcesForStash,
     deleteSource: deleteSource,

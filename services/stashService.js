@@ -2,6 +2,7 @@
 
 var mysql = require('./mysql');
 var logic = require('./logic');
+var sourceService = require('./sourceService');
 
 function createNewStash(req, res, next) {
     console.log('New req to create a stash.');
@@ -39,9 +40,11 @@ function createNewStash(req, res, next) {
                 mysql.query(query, (error, rows) => {
                     if (error) throw error;
                     res.status(201).send('Stash successfully created.');
-                    console.log('Stash successfully created.\n');
-                })
-
+                    console.log('Stash successfully created.');
+                    console.log('Adding root source for the new stash.');
+                    sourceService.createRootSource(stashTitle, stash_id, author_id);
+                    console.log('All operations finished.\n');
+                });
             }
         })
     }
