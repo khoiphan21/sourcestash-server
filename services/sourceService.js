@@ -189,7 +189,7 @@ function createNewSource(req, res, next) {
         source.hyperlink == null ||
         source.description == null ||
         source.difficulty == null ||
-        source.tags == null
+        source.tags.length == null
     ) {
         res.status(400).send('Missing parameters for adding a source');
     } else {
