@@ -69,6 +69,7 @@ app.get('/', (req, res) => {
 // app.post('/source/*', sourceService.handlePostRequest);
 app.post('/source/new', sourceService.createNewSource);
 app.post('/source/all/:stash_id', sourceService.getSourcesForStash);
+app.post('/source/single', sourceService.getSource);
 app.post('/source/delete/:source_id', sourceService.deleteSource);
 app.post('/source/update/position', sourceService.updatePosition);
 app.post('/source/update', sourceService.updateSource);

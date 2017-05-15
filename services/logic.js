@@ -11,6 +11,17 @@ function hash(string) {
     return h;
 }
 
+function generateUID() {
+    function s4() {
+        return Math.floor((1 + Math.random()) * 0x10000)
+            .toString(16)
+            .substring(1);
+    }
+    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+        s4() + '-' + s4() + s4() + s4();
+}
+
 module.exports = {
-    hash: hash
+    hash: hash,
+    generateUID: generateUID
 }
