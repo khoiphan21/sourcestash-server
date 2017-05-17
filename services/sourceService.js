@@ -416,7 +416,6 @@ function addTag(source_id, tag) {
     })
 }
 
-
 module.exports = {
     createRootSource: createRootSource,
     createNewSource: createNewSource,

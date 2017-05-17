@@ -25,6 +25,7 @@ var authClient = require('./services/authClient');
 var authService = require('./services/authService');
 var sourceService = require('./services/sourceService');
 var stashService = require('./services/stashService');
+var collaboratorService = require('./services/collaboratorService');
 var mysql = require('./services/mysql');
 var logic = require('./services/logic');
 
@@ -82,6 +83,11 @@ app.get('/stash/:stash_id', stashService.getStash); // Get a stash based on the 
 app.post('/stash/new', stashService.createNewStash); // Create a new stash
 app.post('/stash/delete', stashService.deleteStash); // Delete a stash
 app.post('/stash/update', stashService.updateStash);
+
+/**
+ * API FOR COLLABORATOR SERVICES
+ */
+app.post('/collaborator/update', collaboratorService.updateCollaborator);
 
 /**
  * API FOR AUTH SERVICES
