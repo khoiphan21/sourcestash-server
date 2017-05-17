@@ -159,5 +159,6 @@ function checkAndUpdateCollaborators(stash_id, collaborators) {
 }
 
 module.exports = {
-    updateCollaborator: updateCollaborator
+    updateCollaborator: updateCollaborator,
+    getCollaborators: getCollaborators
 }

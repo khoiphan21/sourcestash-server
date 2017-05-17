@@ -88,6 +88,7 @@ app.post('/stash/update', stashService.updateStash);
  * API FOR COLLABORATOR SERVICES
  */
 app.post('/collaborator/update', collaboratorService.updateCollaborator);
+app.post('/collaborators/get', collaboratorService.getCollaborators);
 
 /**
  * API FOR AUTH SERVICES
