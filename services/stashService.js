@@ -115,7 +115,7 @@ function getStashesForUser(req, res, next) {
 }
 
 function getStash(req, res, next) {
-    console.log('req received to retrieve a stash');
+    console.log('Request received to retrieve a stash');
     if (req.params.stash_id == null) {
         res.status(404).send('The stash does not exist');
     }
@@ -127,15 +127,61 @@ function getStash(req, res, next) {
 
         if (rows[0] == undefined) {
             res.status(404).send('Stash does not exist');
+            console.log('Stash retrieval failed: stash does not exist.\n');
         } else {
             res.status(200).send(rows[0]);
+            console.log('Stash retrieval successful.\n');
         }
     });
+}
+
+// UPDATE THE CONTENT OF A STASH
+function updateStash(req, res, next) {
+    console.log('Request received to update a stash.');
+    let stash = req.body.stash;
+    if (
+        stash.author_id == null ||
+        stash.stash_id == null ||
+        stash.title == null ||
+        stash.description == null
+    ) {
+        res.status(400).send('Missing parameters.');
+        console.log('Stash update failed: Missing parameters.\n');
+    } else {
+        // Check if the stash exists
+        let query = `
+            SELECT * FROM \`stash_basic_information\` 
+            WHERE \`stash_basic_information\`.\`stash_id\` = '${stash.stash_id}'
+        `;
+        mysql.query(query, (error, rows) => {
+            if (error) throw error;
+            if (rows[0] == undefined) {
+                res.status(404).send('The stash does not exist.');
+                console.log('Update failed: the stash does not exist.\n');
+            } else {
+                // Update the content of the stash
+                let query = `
+                    UPDATE \`stash_basic_information\` SET 
+                    \`stash_id\` = '${stash.stash_id}', 
+                    \`title\` = '${stash.title}', 
+                    \`description\` = '${stash.description}', 
+                    \`author_id\` = '${stash.author_id}' 
+                    WHERE \`stash_basic_information\`.\`stash_id\` = '${stash.stash_id}'
+                `;
+                mysql.query(query, (error, rows) => {
+                    if (error) throw error;
+                    res.status(200).send('Stash successfully updated');
+                    console.log('Stash successfully updated.\n');
+                });
+            }
+        })
+    }
 }
 
 module.exports = {
     createNewStash: createNewStash,
     deleteStash: deleteStash,
     getStashesForUser: getStashesForUser,
-    getStash: getStash
+    getStash: getStash,
+    updateStash: updateStash
 }

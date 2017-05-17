@@ -81,6 +81,7 @@ app.get('/stashes/all/:useremail', stashService.getStashesForUser); // Get all s
 app.get('/stash/:stash_id', stashService.getStash); // Get a stash based on the given id
 app.post('/stash/new', stashService.createNewStash); // Create a new stash
 app.post('/stash/delete', stashService.deleteStash); // Delete a stash
+app.post('/stash/update', stashService.updateStash);
 
 /**
  * API FOR AUTH SERVICES
