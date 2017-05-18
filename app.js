@@ -214,18 +214,21 @@ app.post('/login/google/', upload.array(), (req, res) => {
                     res.status(200).send('Login successful');
                 });
             } else {
-                // Check if the social_id matches the password
-                let password = rows[0].password;
-                if (account.social_id == password) {
-                    console.log('Login successful');
-                    res.status(200).send('Login successful');
-                } else {
-                    console.log('social_id does not match password');
-                    res.status(400).send('social id does not match the stored value');
-                }
+                // Update the values of the account and send successful login
+                let query = `
+                    UPDATE \`user_basic_information\` 
+                    SET \`user_id\`='${hashValue}',\`email\`='${account.email}',
+                    \`password\`='${account.social_id}',\`firstname\`='${account.firstname}',
+                    \`lastname\`='${account.lastname} '
+                    WHERE \`user_basic_information\`.\`email\` = '${account.email}'
+                `
+                mysql.query(query, (error, rows) => {
+                    if (error) throw error;
+                    res.status(200).send('Login successful.');
+                    console.log('Login successful.\n');
+                });
             }
         })
-
     }
 })
 
