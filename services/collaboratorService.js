@@ -8,8 +8,6 @@ var mysql = require('./mysql');
 var logic = require('./logic');
 var mock = require('./mockParams');
 
-getCollaborators(mock.request, mock.response);
-
 /**
  * Update a list of collaborators. Params required:
  *      stash_id: string

@@ -25,7 +25,6 @@ mysql.connect(function(err) {
     if (err) {
         console.log('Error connecting to Db');
         throw err;
-        return;
     }
     console.log('Database connection established');
 });

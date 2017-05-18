@@ -1,6 +1,7 @@
 let request = {
     body: {
         stash_id: '24039641',
+        user_id: '1693158545179',
         collaborators: [
             '1693158545179',
             '185839818004'
