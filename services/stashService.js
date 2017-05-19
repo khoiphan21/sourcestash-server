@@ -1,7 +1,8 @@
 'use strict';
 
-var mysql = require('./mysql');
+var mysql = require('./mysqlPromise');
 var logic = require('./logic');
+var errorService = require('./errorService');
 var sourceService = require('./sourceService');
 
 function createNewStash(req, res, next) {
@@ -20,14 +21,10 @@ function createNewStash(req, res, next) {
         let author_id = req.body.stash.author_id;
         let description = req.body.stash.description;
         let stash_id = logic.hash(stashTitle);
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
-
+        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` = ? ';
+        mysql.query(checkQuery, [stash_id]).then(rows => {
             if (rows.length != 0) {
-                res.status(400).send('Stash already existed.');
-                console.log('Stash already existed.\n');
-                return;
+                return Promise.reject({ reason: 'Stash already existed.' })
             } else {
                 // Add the stash to the database
                 let query = 'INSERT INTO `stash_basic_information` ' +
@@ -37,15 +34,16 @@ function createNewStash(req, res, next) {
                     '\'' + description + '\',' +
                     '\'' + author_id + '\'' +
                     ')';
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(201).send('Stash successfully created.');
-                    console.log('Stash successfully created.');
-                    console.log('Adding root source for the new stash.');
-                    sourceService.createRootSource(stashTitle, stash_id, author_id);
-                    console.log('All operations finished.\n');
-                });
+                return mysql.query(query, [stash_id, stashTitle, description, author_id])
             }
+        }).then(rows => {
+            res.status(201).send('Stash successfully created.');
+            console.log('Stash successfully created.');
+            console.log('Adding root source for the new stash.');
+            sourceService.createRootSource(stashTitle, stash_id, author_id);
+            console.log('All operations finished.\n');
+        }).catch(error => {
+            errorService.handleError(error);
         })
     }
 }
@@ -62,24 +60,21 @@ function deleteStash(req, res, next) {
     } else {
         // Check if the stash exists
         let stash_id = req.body.stash.stash_id;
-        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE "' + stash_id + '"';
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
+        let checkQuery = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` = ?';
+        mysql.query(checkQuery, [stash_id]).then(rows => {
             if (rows[0] == undefined) {
                 // The stash does not exist
-                res.status(400).send('The stash does not exist');
-                console.log('The stash does not exist\n');
+                return Promise.reject({ reason: 'The stash does not exist.' });
             } else {
                 // Delete the stash
                 let query = 'DELETE FROM `stash_basic_information` WHERE ' +
-                    '`stash_basic_information`.`stash_id` = "' + stash_id + '"';
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(201).send('Stash successfully deleted');
-                    console.log('Stash successfully deleted.\n');
-                })
+                    '`stash_basic_information`.`stash_id` = ?';
+                return mysql.query(query, [stash_id])
             }
-        })
+        }).then(() => {
+            res.status(201).send('Stash successfully deleted');
+            console.log('Stash successfully deleted.\n');
+        }).catch(error => errorService.handleError(error));
     }
 }
 
@@ -94,24 +89,19 @@ function getStashesForUser(req, res, next) {
 
     // Now check the database to see if the user already exist. Note that id is casted
     // to a string. 
-    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` LIKE "' + user_id + '"';
-    mysql.query(checkQuery, (error, checkRows) => {
-        if (error) throw error;
-        if (checkRows[0] == undefined) {
-            res.status(404).send('User reqed does not exist');
-            console.log('Wrong user_id reqed\n');
+    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` = ?';
+    mysql.query(checkQuery, [user_id]).then(rows => {
+        if (rows[0] == undefined) {
+            return Promise.reject({ reason: 'User does not exist' });
         } else {
-            let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` LIKE "' + user_id + '"';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-
-                // If no error, return the rows to the main app
-                res.status(200).send(rows);
-
-                console.log('Retrieval successful\n');
-            })
+            let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` = ?';
+            return mysql.query(query, [user_id])
         }
-    });
+    }).then(() => {
+        // If no error, return the rows to the main app
+        res.status(200).send(rows);
+        console.log('Retrieval successful\n');
+    }).catch(error => errorService.handleError(error));
 }
 
 function getStash(req, res, next) {
@@ -120,19 +110,15 @@ function getStash(req, res, next) {
         res.status(404).send('The stash does not exist');
     }
     let stash_id = req.params.stash_id;
-    let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` LIKE"' + stash_id + '"';
-    mysql.query(query, (error, rows) => {
-        console.log(rows);
-        if (error) throw error;
-
+    let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` = ?';
+    mysql.query(query, [stash_id]).then(rows => {
         if (rows[0] == undefined) {
-            res.status(404).send('Stash does not exist');
-            console.log('Stash retrieval failed: stash does not exist.\n');
+            return Promise.reject('Stash does not exist');
         } else {
             res.status(200).send(rows[0]);
             console.log('Stash retrieval successful.\n');
         }
-    });
+    }).catch(error => errorService.handleError(error));
 }
 
 // UPDATE THE CONTENT OF A STASH
@@ -151,30 +137,31 @@ function updateStash(req, res, next) {
         // Check if the stash exists
         let query = `
             SELECT * FROM \`stash_basic_information\` 
-            WHERE \`stash_basic_information\`.\`stash_id\` = '${stash.stash_id}'
+            WHERE \`stash_basic_information\`.\`stash_id\` = ?
         `;
-        mysql.query(query, (error, rows) => {
-            if (error) throw error;
+        mysql.query(query, [stash_id]).then(rows => {
             if (rows[0] == undefined) {
-                res.status(404).send('The stash does not exist.');
-                console.log('Update failed: the stash does not exist.\n');
+                return Promise.reject({ reason: 'The stash does not exist.' });
             } else {
                 // Update the content of the stash
                 let query = `
                     UPDATE \`stash_basic_information\` SET 
-                    \`stash_id\` = '${stash.stash_id}', 
-                    \`title\` = '${stash.title}', 
-                    \`description\` = '${stash.description}', 
-                    \`author_id\` = '${stash.author_id}' 
-                    WHERE \`stash_basic_information\`.\`stash_id\` = '${stash.stash_id}'
+                    \`stash_id\` = ? , \`title\` = ? ,
+                    \`description\` = ? ,\`author_id\` = ?  
+                    WHERE \`stash_basic_information\`.\`stash_id\` = ?
                 `;
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(200).send('Stash successfully updated');
-                    console.log('Stash successfully updated.\n');
-                });
+                return mysql.query(query, [
+                    stash.stash_id,
+                    stash.title,
+                    stash.description,
+                    stash.author_id,
+                    stash.stash_id
+                ])
             }
-        })
+        }).then(() => {
+            res.status(200).send('Stash successfully updated');
+            console.log('Stash successfully updated.\n');
+        }).catch(error => errorService.handleError(error));
     }
 }
 
