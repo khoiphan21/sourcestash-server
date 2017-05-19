@@ -272,8 +272,9 @@ function createRootSource(title, stash_id, author_id) {
     source.yPosition = 0;
 
     let query = 'INSERT INTO `source_basic_information` ' +
-        '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
-        '\'' + source.sourceid + '\',' +
+        '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES ' +
+        '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    '\'' + source.sourceid + '\',' +
         '\'' + source.parent_id + '\',' +
         '\'' + source.stash_id + '\',' +
         '\'' + source.author_id + '\',' +
@@ -285,12 +286,11 @@ function createRootSource(title, stash_id, author_id) {
         source.xPosition + ',' +
         source.yPosition +
         ')';
-    console.log(query);
-    mysql.query(query, (error, rows) => {
-        if (error) {
-            console.log('error with insert query in createRootSource');
-            throw error;
-        }
+    mysql.query(query, [
+        source.source_id, source.parent_id, source.stash_id, source.author_id, source.hyperlink,
+        source.title, source.description, source.type, source.difficulty, source.xPosition, source.yPosition
+    ]).catch(error => {
+        throw error;
     })
 }
 
@@ -307,21 +307,15 @@ function updateTags(source_id, tags) {
     }
 
     // Retrieve the current list of tags attached to this source
-    let query = `
-        SELECT * FROM \`tags_list\` WHERE \`tags_list\`.\`source_id\` = '${source_id}'
-    `;
-    mysql.query(query, (error, rows) => {
-        if (error) throw error;
+    let query = "SELECT * FROM `tags_list` WHERE `tags_list`.`source_id` = ?";
+    mysql.query(query, source_id).then(rows => {
         if (rows[0] == undefined) {
             // no tags existed
             // for this source.Add all of them
             for (let i = 0; i < tags.length; i++) {
                 let tag = tags[i];
-                let query = `
-                    INSERT INTO \`tags_list\` (\`tag\`, \`source_id\`) 
-                    VALUES ('${tag}', '${source_id}')
-                `
-                mysql.query(query, (error, rows) => { if (error) throw error; });
+                let query = `INSERT INTO \`tags_list\` (\`tag\`, \`source_id\`) VALUES (? , ?)`
+                mysql.query(query, [tag, source_id]);
             }
         } else {
             // Process the data from the databse to an array of tags only
@@ -334,34 +328,30 @@ function updateTags(source_id, tags) {
             // array of tags already contain it.
             // if not, delete the tag from the database
             _.each(storedTags, tag => {
-                let doesExist = false;
-                doesExist = _.findKey(tagDictionary, (value, key) => {
-                    if (key === tag) return true;
-                });
-                if (!doesExist) {
-                    // now delete the tag from the database
-                    let query = `
+                    let doesExist = false;
+                    doesExist = _.findKey(tagDictionary, (value, key) => {
+                        if (key === tag) return true;
+                    });
+                    if (!doesExist) {
+                        // now delete the tag from the database
+                        let query = `
                             DELETE FROM \`tags_list\` 
-                            WHERE \`tags_list\`.\`tag\`='${tag}' 
-                            AND \`tags_list\`.\`source_id\`='${source_id}'
+                            WHERE \`tags_list\`.\`tag\`= ? 
+                            AND \`tags_list\`.\`source_id\`= ?
                         `;
-                    mysql.query(query, (error, rows) => { if (error) throw error; });
-                } else {
-                    // Set the flag in the tagDictionary
-                    tagDictionary[tag] = true;
-                }
-            })
-
-            // Loop through each tag in the array to see if it is already in the database
-            // if not, add that to the database
+                        mysql.query(query, [tag, source_id]);
+                    } else {
+                        // Set the flag in the tagDictionary
+                        tagDictionary[tag] = true;
+                    }
+                })
+                // Loop through each tag in the array to see if it is already in the database
+                // if not, add that to the database
             _.each(tagDictionary, (isInDatabase, tag) => {
                 if (!isInDatabase) {
                     // add to the database
-                    let query = `
-                        INSERT INTO \`tags_list\` (\`tag\`, \`source_id\`) 
-                        VALUES ('${tag}', '${source_id}')
-                    `
-                    mysql.query(query, (error, rows) => { if (error) throw error; });
+                    let query = "INSERT INTO `tags_list` (`tag`, `source_id`) VALUES (? , ?)";
+                    mysql.query(query, [tag, source_id]).catch(error => { throw error; })
                 }
             })
         }
@@ -371,18 +361,15 @@ function updateTags(source_id, tags) {
 // Add a tag to the table of tag list
 function addTag(source_id, tag) {
     let checkQuery = 'SELECT * FROM `tags_list` WHERE ' +
-        '`source_id`=\'' + source_id + '\' AND `tag`=\'' + tag + '\'';
-    mysql.query(checkQuery, (error, rows) => {
-        if (error) throw error;
+        '`source_id`= ? AND `tag`= ? ';
+    mysql.query(checkQuery, [source_id, tag]).then(rows => {
         if (rows[0] == undefined) {
             // tag does not exist in the source. attempt to update table
-            let query = 'INSERT INTO `tags_list` (`tag`, `source_id`) VALUES (' +
-                '\'' + tag + '\', ' +
-                '\'' + source_id + '\')';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-            })
+            let query = 'INSERT INTO `tags_list` (`tag`, `source_id`) VALUES (?, ?)';
+            return mysql.query(query, [tag, source_id])
         }
+    }).catch(error => {
+        errorService.handleError(error);
     })
 }
 
