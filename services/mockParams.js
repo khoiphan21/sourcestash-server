@@ -5,7 +5,8 @@ let request = {
         collaborators: [
             '1693158545179',
             '185839818004'
-        ]
+        ],
+        email: 'john4@example.com'
     }
 }
 let response = {

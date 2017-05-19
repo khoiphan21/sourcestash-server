@@ -94,6 +94,7 @@ app.post('/collaborators/get', collaboratorService.getCollaborators);
  * API FOR AUTH SERVICES
  */
 app.post('/user/id', authService.getUserID);
+app.post('/user/info', authService.getBasicUserInformation);
 
 // Oauth callback
 app.get('/oauth2callback', upload.array(), (req, res) => {

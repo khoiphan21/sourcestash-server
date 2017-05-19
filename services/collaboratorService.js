@@ -10,8 +10,8 @@ var mock = require('./mockParams');
 
 /**
  * Update a list of collaborators. Params required:
- *      stash_id: string
- *      collaborators: string[]
+ *      stash_id: string - the id of the stash
+ *      collaborators: string[] - the list of user ids
  */
 function updateCollaborator(req, res, next) {
     console.log('Request received to add collaborators.');

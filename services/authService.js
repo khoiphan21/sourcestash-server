@@ -4,19 +4,32 @@ var logic = require('./logic');
 var mock = require('./mockParams');
 var mysql = require('./mysqlPromise');
 
+getUserID(mock.request, mock.response)
+
 function getUserID(req, res, next) {
     console.log('Request received to get user ID');
-    if (req.body.email == null) {
+    let email = req.body.email;
+    if (email == null) {
         res.status(400).send('Email is required.');
-        console.log('Bad Request');
+        console.log('Retrieval failed: email param is missing.');
         return;
     } else {
-        console.log(req.body.email);
-        let id = logic.hash(req.body.email);
-        res.status(200).send({
-            userID: id
-        });
-        console.log('Successfully sent user ID');
+        let query = `
+            SELECT \`user_id\` FROM \`user_basic_information\` 
+            WHERE \`email\`= '${email}'
+        `;
+        mysql.query(query).then(idArray => {
+            if (idArray.length == 0) {
+                res.status(404).send('User Email not found.');
+                console.log('Retrieval failed: email not found.\n');
+            } else {
+                let user_id = idArray[0];
+                res.status(200).send(user_id);
+                console.log('Successfully sent user ID.\n');
+            }
+        }).catch(error => {
+            throw error;
+        })
     }
 }
 
