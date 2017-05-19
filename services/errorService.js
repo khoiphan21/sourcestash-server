@@ -8,7 +8,7 @@ function handleError(error, response) {
     } else {
         // Internal error, maybe SQL injection
         response.status(500).send('Unknwon Server Error');
-        console.log(error);
+        throw error;
     }
 }
 

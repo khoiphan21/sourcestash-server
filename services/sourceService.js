@@ -108,7 +108,7 @@ function getSourcesForStash(req, res, next) {
 
         console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
     }).catch(error => {
-        errorService.handleError(error);
+        errorService.handleError(error, res);
     })
 }
 
@@ -131,7 +131,7 @@ function getSource(req, res, next) {
                 return Promise.reject({ reason: 'The source requested does not exist' });
             }
         }).catch(error => {
-            errorService.handleError(error);
+            errorService.handleError(error, res);
         })
     }
 }
@@ -163,7 +163,7 @@ function deleteSource(req, res, next) {
         console.log('Source successfully deleted\n');
         res.status(200).send('Source successfully deleted');
     }).catch(error => {
-        errorService.handleError(error);
+        errorService.handleError(error, res);
     })
 }
 
@@ -218,7 +218,7 @@ function createNewSource(req, res, next) {
                 addTag(id, source.tags[i]);
             }
         }).catch(error => {
-            errorService.handleError(error);
+            errorService.handleError(error, res);
         })
     }
 }
@@ -369,7 +369,7 @@ function addTag(source_id, tag) {
             return mysql.query(query, [tag, source_id])
         }
     }).catch(error => {
-        errorService.handleError(error);
+        errorService.handleError(error, res);
     })
 }
 

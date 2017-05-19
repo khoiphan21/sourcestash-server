@@ -43,7 +43,7 @@ function createNewStash(req, res, next) {
             sourceService.createRootSource(stashTitle, stash_id, author_id);
             console.log('All operations finished.\n');
         }).catch(error => {
-            errorService.handleError(error);
+            errorService.handleError(error, res);
         })
     }
 }
@@ -74,7 +74,7 @@ function deleteStash(req, res, next) {
         }).then(() => {
             res.status(201).send('Stash successfully deleted');
             console.log('Stash successfully deleted.\n');
-        }).catch(error => errorService.handleError(error));
+        }).catch(error => errorService.handleError(error, res));
     }
 }
 
@@ -91,17 +91,17 @@ function getStashesForUser(req, res, next) {
     // to a string. 
     let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` = ?';
     mysql.query(checkQuery, [user_id]).then(rows => {
-        if (rows[0] == undefined) {
+        if (rows.length == 0) {
             return Promise.reject({ reason: 'User does not exist' });
         } else {
             let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` = ?';
             return mysql.query(query, [user_id])
         }
-    }).then(() => {
+    }).then(rows => {
         // If no error, return the rows to the main app
         res.status(200).send(rows);
-        console.log('Retrieval successful\n');
-    }).catch(error => errorService.handleError(error));
+        console.log('Retrieval successful.\n');
+    }).catch(error => errorService.handleError(error, res));
 }
 
 function getStash(req, res, next) {
@@ -118,7 +118,7 @@ function getStash(req, res, next) {
             res.status(200).send(rows[0]);
             console.log('Stash retrieval successful.\n');
         }
-    }).catch(error => errorService.handleError(error));
+    }).catch(error => errorService.handleError(error, res));
 }
 
 // UPDATE THE CONTENT OF A STASH
@@ -139,7 +139,7 @@ function updateStash(req, res, next) {
             SELECT * FROM \`stash_basic_information\` 
             WHERE \`stash_basic_information\`.\`stash_id\` = ?
         `;
-        mysql.query(query, [stash_id]).then(rows => {
+        mysql.query(query, [stash.stash_id]).then(rows => {
             if (rows[0] == undefined) {
                 return Promise.reject({ reason: 'The stash does not exist.' });
             } else {
@@ -161,7 +161,7 @@ function updateStash(req, res, next) {
         }).then(() => {
             res.status(200).send('Stash successfully updated');
             console.log('Stash successfully updated.\n');
-        }).catch(error => errorService.handleError(error));
+        }).catch(error => errorService.handleError(error, res));
     }
 }
 
