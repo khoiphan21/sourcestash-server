@@ -4,29 +4,12 @@
 var _ = require('underscore');
 
 // Internal services
-var mysql = require('./mysql');
+var mysql = require('./mysqlPromise');
 var logic = require('./logic');
+var errorService = require('./errorService');
 
-/**
- * Update the source_children table, to update the parent of a source
- * @param {*} source_id 
- * @param {*} source_child_id 
- */
-function updateParentSource(source_id, source_child_id) {
-    let checkQuery = 'SELECT * FROM `source_children` WHERE ' +
-        '`source_id`=\'' + source_id + '\' AND `source_child_id`= \'' + source_child_id + '\'';
-    mysql.query(checkQuery, (error, rows) => {
-        if (error) throw error;
-        if (rows[0] == undefined) {
-            let query = 'INSERT INTO `source_children` (`source_id`, `source_child_id`) VALUES (' +
-                '\'' + source_id + '\', ' +
-                '\'' + source_child_id + '\')';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-            })
-        }
-    });
-}
+// For testing
+var mock = require('./mockParams');
 
 // UPDATE THE DETAILS OF A SOURCE
 function updateSource(req, res, next) {
@@ -40,38 +23,40 @@ function updateSource(req, res, next) {
         // Check if the source exists
         let checkQuery = `
                 SELECT * FROM \`source_basic_information\` 
-                WHERE \`source_basic_information\`.\`source_id\` = '${source.source_id}';
+                WHERE \`source_basic_information\`.\`source_id\` = ?
             `;
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
+        mysql.query(checkQuery, [source.source_id]).then(rows => {
             if (rows[0] == undefined) {
-                res.status(404).send('The source does not exist.');
-                console.log('Update failed: the source does not exist.\n');
+                return Promise.reject({ reason: 'The source does not exist.' })
             } else {
                 // Update the source
                 let query = `
                     UPDATE \`source_basic_information\` SET
-                    \`parent_id\` = '${source.parent_id}',
-                    \`stash_id\` = '${source.stash_id}',
-                    \`author_id\` = '${source.author_id}',
-                    \`title\` = '${source.title}',
-                    \`xPosition\` = '${source.xPosition}',
-                    \`yPosition\` = '${source.yPosition}',
-                    \`type\` = '${source.type}',
-                    \`hyperlink\` = '${source.hyperlink}',
-                    \`description\` = '${source.description}',
-                    \`difficulty\` = '${source.difficulty}'
-                    WHERE \`source_basic_information\`.\`source_id\` = '${source.source_id}'
+                    \`parent_id\` = ?, \`stash_id\` = ? ,
+                    \`author_id\` = ?, \`title\` = ?,
+                    \`xPosition\` = ?, \`yPosition\` = ?,
+                    \`type\` = ?, \`hyperlink\` = ?,
+                    \`description\` = ?, \`difficulty\` = ?
+                    WHERE \`source_basic_information\`.\`source_id\` = ?
                 `;
-                mysql.query(query, (error, rows) => {
-                    if (error) throw error;
-                    res.status(200).send('Source successfully updated');
-                    console.log('Source successfully updated.\n');
-                });
-                // Update the tags
-                updateTags(source.source_id, source.tags);
+                let inserts = [
+                    source.parent_id, source.stash_id,
+                    source.author_id, source.title,
+                    source.xPosition, source.yPosition,
+                    source.type, source.hyperlink,
+                    source.description, source.difficulty,
+                    source.source_id
+                ]
+                return mysql.query(query, inserts)
             }
-        })
+        }).then(rows => {
+            res.status(200).send('Source successfully updated');
+            console.log('Source successfully updated.\n');
+            // Update the tags
+            updateTags(source.source_id, source.tags);
+        }).catch(error => {
+            errorService.handleError(error, res);
+        });
     }
 }
 
@@ -88,27 +73,20 @@ function updatePosition(req, res, next) {
         res.status(400).send('Some parameters are missing. "source_id", "xPosition" and "yPosition" are needed.');
     }
 
-    let checkQuery = 'SELECT * FROM `source_basic_information` WHERE `source_basic_information`.`source_id` = "' +
-        coords.source_id + '"';
-    mysql.query(checkQuery, (error, rows) => {
-        if (error) throw error;
+    let checkQuery = 'SELECT * FROM `source_basic_information` WHERE `source_basic_information`.`source_id` = ?'
+    mysql.query(checkQuery, coords.source_id).then(rows => {
         if (rows[0] == undefined) {
-            // The source with the given id does not exist
-            console.log('Source with the given id does not exist \n');
-            res.status(400).send('Source with the given id does not exist');
+            return Promise.reject({ reason: 'Source with the given id does not exist' });
         } else {
-            // Update the position
-            let query = 'UPDATE `source_basic_information` SET `xPosition` = ' +
-                '\'' + coords.xPosition + '\',' + '`yPosition` = ' +
-                '\'' + coords.yPosition + '\'' +
-                'WHERE `source_basic_information`.`source_id` = \'' + coords.source_id + '\'';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-
-                console.log('Successfully updated location of source: ' + coords.source_id);
-                res.status(200).send('Successfully updated location for source: ' + coords.source_id);
-            });
+            let query = 'UPDATE `source_basic_information` SET `xPosition` = ?, `yPosition` = ? ' +
+                'WHERE `source_basic_information`.`source_id` = ?';
+            return mysql.query(query, [+coords.xPosition, +coords.yPosition, coords.source_id])
         }
+    }).then(rows => {
+        console.log('Successfully updated location of source: ' + coords.source_id);
+        res.status(200).send('Successfully updated location for source: ' + coords.source_id);
+    }).catch(error => {
+        errorService.handleError(error, res);
     })
 }
 
@@ -123,13 +101,14 @@ function getSourcesForStash(req, res, next) {
     }
 
     let query = 'SELECT * FROM `source_basic_information` WHERE ' +
-        '`source_basic_information`.`stash_id` = "' + stash_id + '"';
-    mysql.query(query, (error, rows) => {
-        if (error) throw error;
-        console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
+        '`source_basic_information`.`stash_id` = ?';
+    mysql.query(query, stash_id).then(rows => {
         let rawSources = rows;
-
         res.status(200).send(rawSources);
+
+        console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
+    }).catch(error => {
+        errorService.handleError(error);
     })
 }
 
@@ -143,16 +122,16 @@ function getSource(req, res, next) {
         return;
     } else {
         let query = 'SELECT * FROM `source_basic_information` WHERE ' +
-            '`source_basic_information`.`source_id` = "' + source_id + '"';
-        mysql.query(query, (error, rows) => {
-            if (error) throw error;
+            '`source_basic_information`.`source_id` = ? ';
+        mysql.query(query, source_id).then(rows => {
             if (rows.length == 1) {
                 res.status(200).send(rows[0]);
                 console.log('Source retrieval successful.\n');
             } else {
-                res.status(404).send('The source requested does not exist');
-                console.log('Retrieval failed: the source requested does not exist.\n');
+                return Promise.reject({ reason: 'The source requested does not exist' });
             }
+        }).catch(error => {
+            errorService.handleError(error);
         })
     }
 }
@@ -168,25 +147,23 @@ function deleteSource(req, res, next) {
     }
 
     let checkQuery = 'SELECT * FROM `source_basic_information` WHERE ' +
-        '`source_basic_information`.`source_id` = "' + source_id + '"';
-    mysql.query(checkQuery, (error, rows) => {
-        if (error) throw error;
+        '`source_basic_information`.`source_id` = ?';
+    mysql.query(checkQuery, source_id).then(rows => {
         if (rows[0] != undefined) {
             // The source exist. First swap the parent_id
             let swapQuery = ''
                 // Delete it now.
             let query = 'DELETE FROM `source_basic_information` WHERE ' +
-                '`source_basic_information`.`source_id`="' + source_id + '"';
-            mysql.query(query, (error, rows) => {
-                if (error) throw error;
-
-                console.log('Source successfully deleted\n');
-                res.status(200).send('Source successfully deleted');
-            })
+                '`source_basic_information`.`source_id`= ?';
+            return mysql.query(query, source_id)
         } else {
-            console.log('Source not found.\n');
-            res.status(404).send('Source does not exist');
+            return Promise.reject({ reason: 'Source not found.\n' })
         }
+    }).then(rows => {
+        console.log('Source successfully deleted\n');
+        res.status(200).send('Source successfully deleted');
+    }).catch(error => {
+        errorService.handleError(error);
     })
 }
 
@@ -196,60 +173,53 @@ function createNewSource(req, res, next) {
     // A new source must have these values:
     let source = req.body.source;
     let isIDPresent = false;
+
+    // Generate a random id
+    let id = logic.generateUID();
+    source.source_id = id;
+
     if (isAnySourceParamMissing(source)) {
         res.status(400).send('Missing parameters for adding a source');
-        console.log('Creation failed: bad request syntax - one or more parameters are missing.\n')
+        console.log('Creation failed: one or more parameters are missing.\n')
     } else {
         // TODO: CHECK IF THE ID ALREADY EXISTS!
 
         // FOR NOW: just return an error
-
-        // Generate a random id
-        let id = logic.generateUID();
-
         let checkQuery = 'SELECT * FROM `source_basic_information` WHERE ' +
-            '`source_id` LIKE "' + id + '"';
-        mysql.query(checkQuery, (error, rows) => {
-            if (error) throw error;
+            '`source_id` = ?';
+        mysql.query(checkQuery, id).then(rows => {
             if (rows.length != 0) {
-                res.status(500).send('Internal error: unable to add source');
-                console.log('ID already exists!\n');
-                return;
+                return Promise.reject({ reason: 'Internal error: unable to add source' })
+            } else {
+                return Promise.resolve();
             }
-        })
-
-        // When control reaches here, the id must be unique
-        // Add the source to the database
-        let query = 'INSERT INTO `source_basic_information` ' +
-            '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
-            '\'' + id + '\',' +
-            '\'' + source.parent_id + '\',' +
-            '\'' + source.stash_id + '\',' +
-            '\'' + source.author_id + '\',' +
-            '\'' + source.hyperlink + '\',' +
-            '\'' + source.title + '\',' +
-            '\'' + source.description + '\',' +
-            '\'' + source.type + '\',' +
-            '\'' + source.difficulty + '\',' +
-            source.xPosition + ',' +
-            source.yPosition +
-            ')';
-        mysql.query(query, (error, rows) => {
-            if (error) {
-                console.log('error with insert query in sourceService');
-                throw error;
-            }
-
-            // Add the id to the source object
-            source.source_id = id;
+        }).then(() => {
+            // When control reaches here, the id must be unique
+            // Add the source to the database
+            let query = `
+                INSERT INTO \`source_basic_information\` (
+                    \`source_id\`, \`parent_id\`, \`stash_id\`, \`author_id\`,
+                    \`hyperlink\`, \`title\`, \`description\`, \`type\`, 
+                    \`difficulty\`, \`xPosition\`, \`yPosition\`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `
+            let queryParams = [
+                id, source.parent_id, source.stash_id, source.author_id,
+                source.hyperlink, source.title, source.description, source.type,
+                source.difficulty, source.xPosition, source.yPosition
+            ];
+            return mysql.query(query, queryParams);
+        }).then(() => {
+            // Send the source object with an id back to 
             res.status(201).send(source);
-            console.log('Source creation successful.\n')
+            console.log('Source creation successful.\n');
+            // Update the table of tags
+            for (let i = 0; i < source.tags.length; i++) {
+                addTag(id, source.tags[i]);
+            }
+        }).catch(error => {
+            errorService.handleError(error);
         })
-
-        // Update the table of tags
-        for (let i = 0; i < source.tags.length; i++) {
-            addTag(id, source.tags[i]);
-        }
     }
 }
 
@@ -289,7 +259,7 @@ function isAnySourceParamMissing(source, isIDPresent = false) {
 function createRootSource(title, stash_id, author_id) {
     let source = {};
     // Populate the source object with the values
-    source.id = logic.hash(title);
+    source.source_id = logic.generateUID();
     source.parent_id = '';
     source.stash_id = stash_id;
     source.author_id = author_id;
@@ -303,7 +273,7 @@ function createRootSource(title, stash_id, author_id) {
 
     let query = 'INSERT INTO `source_basic_information` ' +
         '(`source_id`, `parent_id`, `stash_id`, `author_id`, `hyperlink`, `title`, `description`, `type`, `difficulty`, `xPosition`, `yPosition`) VALUES (' +
-        '\'' + source.id + '\',' +
+        '\'' + source.sourceid + '\',' +
         '\'' + source.parent_id + '\',' +
         '\'' + source.stash_id + '\',' +
         '\'' + source.author_id + '\',' +

@@ -16,18 +16,48 @@ function removeCollaborator(req, res, next) {
         res.status(400).send('Bad request: collaborator and stash ids are needed');
         console.log('Removal failed: missing parameters.\n');
     } else {
-        // for now, just perform the update anyway
-        let query = `
-            DELETE FROM \`collaborators\` WHERE
-            \`stash_id\`='${stash_id}' AND \`collaborator_id\`='${collaborator_id}'
-        `;
-        mysql.query(query).then(rows => {
-            if (error) throw error;
-            res.status(200).send('Successfully removed collaborator');
-            console.log('Successfully removed collaborator.\n');
+        // Check if the stash id is valid
+        let checkQuery = `
+        SELECT * FROM \`stash_basic_information\` 
+            WHERE \`stash_basic_information\`.\`stash_id\`= ?
+        `
+        mysql.query(checkQuery, [stash_id]).then(rows => {
+            if (rows.length == 0) {
+                return Promise.reject({ reason: 'Removal failed: stash does not exist.\n' });
+            } else {
+                // Check if the user id is valid
+                let userQuery = `
+                    SELECT * FROM \`user_basic_information\`
+                    WHERE \`user_basic_information\`.\`user_id\`= ?
+                `;
+                return mysql.query(userQuery, [collaborator_id]);
+            }
+        }).then(rows => {
+            if (rows.length == 0) {
+                let reason = 'Removal failed: user does not exist.';
+                return Promise.reject({ reason: reason });
+            } else {
+                let query = "DELETE FROM `collaborators` WHERE`stash_id`= ? AND `collaborator_id`= ?";
+                return mysql.query(query, [stash_id, collaborator_id]);
+            }
+        }).then(rows => {
+            // Should be okay now. Delete from collaborators
+            let query = "DELETE FROM `collaborators` WHERE `stash_id`= ? AND `collaborator_id` = ?";
+            mysql.query(query, [stash_id, collaborator_id]).then(rows => {
+                res.status(200).send('Successfully removed collaborator');
+                console.log('Successfully removed collaborator.\n');
+            }).catch(error => {
+                throw error;
+            });
         }).catch(error => {
-            throw error;
-        });
+            if (error.reason) {
+                res.status(400).send(error.reason); // Server Caught
+                console.log(`${error.reason}\n`);
+            } else {
+                res.status(500).send('Unknown error occurred.');
+                console.log(error)
+            }
+        })
     }
 }
 
@@ -55,9 +85,9 @@ function updateCollaborator(req, res, next) {
         // Check if the stash exists
         let checkQuery = `
             SELECT * FROM \`stash_basic_information\` 
-            WHERE \`stash_id\` LIKE '${stash_id}'
+            WHERE \`stash_id\` = ?
         `;
-        mysql.query(checkQuery).then(rows => {
+        mysql.query(checkQuery, stash_id).then(rows => {
             if (rows.length == 0) {
                 res.status(404).send('The stash does not exist.');
                 console.log('Bad request: stash does not exist.\n');
@@ -67,15 +97,14 @@ function updateCollaborator(req, res, next) {
                 // First process the array of ids into a query string
                 let queryString = '';
                 _.each(collaborators, user_id => {
-                    queryString += `'${user_id}', `;
+                    queryString += "? ,";
                 });
                 queryString = queryString.slice(0, -2);
-                console.log(queryString);
                 let userQuery = `
                     SELECT * FROM \`user_basic_information\`
                     WHERE \`user_basic_information\`.\`user_id\` IN (${queryString})
                 `;
-                return mysql.query(userQuery);
+                return mysql.query(userQuery, collaborators);
             }
         }).then(rows => {
             // Check if the number of users match number of collaborators
@@ -105,17 +134,17 @@ function getCollaborators(req, res, next) {
     } else {
         let checkQuery = `
             SELECT * FROM \`stash_basic_information\` 
-            WHERE \`stash_basic_information\`.\`stash_id\` = '${stash_id}'
+            WHERE \`stash_basic_information\`.\`stash_id\` = ?
         `;
-        mysql.query(checkQuery).then(rows => {
+        mysql.query(checkQuery, stash_id).then(rows => {
             if (rows.length == 0) {
                 res.status(404).send('Stash does not exist.');
                 console.log('Retrieval failed: stash does not exist.\n');
             } else {
                 let query = `
-                    SELECT * FROM \`collaborators\` WHERE \`stash_id\`='${stash_id}'
+                    SELECT * FROM \`collaborators\` WHERE \`stash_id\`=?
                 `;
-                return mysql.query(query);
+                return mysql.query(query, stash_id);
             }
         }).then(rows => {
             let collaboratorList = [];
@@ -138,10 +167,10 @@ function getCollaborators(req, res, next) {
 function addCollaborator(stash_id, user_id) {
     let query = `
         INSERT INTO \`collaborators\`(\`stash_id\`, \`collaborator_id\`) 
-        VALUES ('${stash_id}', '${user_id}')
+        VALUES (? , ?)
     `;
-    mysql.query(query, (error, rows) => {
-        if (error) throw error;
+    mysql.query(query, [stash_id, user_id]).catch(error => {
+        throw (error);
     });
 }
 
@@ -149,10 +178,10 @@ function deleteAllCollaborators(stash_id) {
     // Delete the currently stored list of collabs in the database
     let query = `
         DELETE FROM \`collaborators\` 
-        WHERE \`collaborators\`.\`stash_id\` = '${stash_id}'
+        WHERE \`collaborators\`.\`stash_id\` = ?
     `;
-    mysql.query(query, (error, rows) => {
-        if (error) throw error;
+    mysql.query(query, stash_id).catch(error => {
+        throw (error);
     });
 }
 
@@ -168,16 +197,16 @@ function checkAndUpdateCollaborators(stash_id, collaborators) {
     // Delete the currently stored list of collabs in the database
     let query = `
         DELETE FROM \`collaborators\` 
-        WHERE \`collaborators\`.\`stash_id\` = '${stash_id}'
+        WHERE \`collaborators\`.\`stash_id\` = ?
     `;
-    mysql.query(query, (error, rows) => {
-        if (error) throw error;
-
+    mysql.query(query, stash_id).then(rows => {
         // now add all collaborators to the database
         _.each(collaborators, user_id => {
             addCollaborator(stash_id, user_id);
-        })
-    });
+        });
+    }).catch(error => {
+        throw error;
+    })
 }
 
 module.exports = {

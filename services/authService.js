@@ -4,8 +4,6 @@ var logic = require('./logic');
 var mock = require('./mockParams');
 var mysql = require('./mysqlPromise');
 
-getUserID(mock.request, mock.response)
-
 function getUserID(req, res, next) {
     console.log('Request received to get user ID');
     let email = req.body.email;
@@ -16,9 +14,9 @@ function getUserID(req, res, next) {
     } else {
         let query = `
             SELECT \`user_id\` FROM \`user_basic_information\` 
-            WHERE \`email\`= '${email}'
+            WHERE \`email\`= ?
         `;
-        mysql.query(query).then(idArray => {
+        mysql.query(query, email).then(idArray => {
             if (idArray.length == 0) {
                 res.status(404).send('User Email not found.');
                 console.log('Retrieval failed: email not found.\n');
@@ -44,21 +42,19 @@ function getBasicUserInformation(req, res, next) {
         console.log('Retrieval failed: missing parameter user_id.\n');
     } else {
         // Check if the user id exists
-        let checkQuery = `
-            SELECT * FROM \`user_basic_information\` WHERE \`user_id\`='${user_id}'
-        `;
-        mysql.query(checkQuery)
+        let checkQuery = "SELECT * FROM `user_basic_information` WHERE `user_id`= ?";
+        mysql.query(checkQuery, user_id)
             .then(rows => {
                 if (rows.length == 0) {
-                    res.status(404).send('User does not exist.');
-                    console.log('Retrieval failed: user does not exist.\n');
+                    let reason = 'User does not exist';
+                    return Promise.reject({ reason: reason });
                 } else {
                     // Retrieve the basic details and return that 
                     let query = `
-                    SELECT \`user_id\`, \`email\`, \`firstname\`, \`lastname\` 
-                    FROM \`user_basic_information\` WHERE \`user_id\`='${user_id}'
-                `;
-                    return mysql.query(query);
+                        SELECT \`user_id\`, \`email\`, \`firstname\`, \`lastname\` 
+                        FROM \`user_basic_information\` WHERE \`user_id\`= ?
+                    `;
+                    return mysql.query(query, user_id);
                 }
             })
             .then(userDataArray => {
@@ -67,7 +63,13 @@ function getBasicUserInformation(req, res, next) {
                 console.log('Retrieval successful.\n');
             })
             .catch(error => {
-                throw error;
+                if (error.reason) {
+                    // Is server recognizable
+                    res.status(400).send(error.reason);
+                    console.log(`${error.reason}\n`);
+                } else {
+                    res.status(500).send('Unknown Server Error Occurred');
+                }
             });
     }
 }
