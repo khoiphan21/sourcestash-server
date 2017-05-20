@@ -80,6 +80,7 @@ app.post('/source/update', sourceService.updateSource);
  */
 app.get('/stashes/all/:useremail', stashService.getStashesForUser); // Get all stashes for a given user id
 app.get('/stash/:stash_id', stashService.getStash); // Get a stash based on the given id
+app.post('/stashes/shared/all', stashService.getSharedStashesForUser); // Get all stashes for a given user id
 app.post('/stash/new', stashService.createNewStash); // Create a new stash
 app.post('/stash/delete', stashService.deleteStash); // Delete a stash
 app.post('/stash/update', stashService.updateStash);

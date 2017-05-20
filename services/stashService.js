@@ -1,7 +1,12 @@
 'use strict';
 
+// External libraries
+var _ = require('underscore');
+
+// Internal services
 var mysql = require('./mysqlPromise');
 var logic = require('./logic');
+var mock = require('./mockParams');
 var errorService = require('./errorService');
 var sourceService = require('./sourceService');
 
@@ -74,7 +79,62 @@ function deleteStash(req, res, next) {
         }).then(() => {
             res.status(201).send('Stash successfully deleted');
             console.log('Stash successfully deleted.\n');
+
+            // Now delete the root source of that stash
+            let query = "DELETE FROM `source_basic_information` WHERE" +
+                "`stash_id`= ? AND `type`='root'";
+            return mysql.query(query, [stash_id]);
         }).catch(error => errorService.handleError(error, res));
+    }
+}
+
+function getSharedStashesForUser(req, res, next) {
+    console.log('Request received to get shared stashes for a user');
+    console.log(req.body.user_id);
+    let user_id = req.body.user_id;
+    if (user_id == null) {
+        res.status(400).send('Request failed: missing parameter.');
+        console.log('Failed to get shared stashes: missing user_id');
+    } else {
+        console.log(user_id);
+        // Check if the user exists
+        let checkQuery = "SELECT * FROM `user_basic_information` WHERE `user_id` = ?";
+        mysql.query(checkQuery, [user_id]).then(rows => {
+            if (rows.length == 0) {
+                return Promise.reject('User does not exist');
+            } else {
+                // Find out what stashes are shared to them
+                let query = `
+                    SELECT \`stash_id\` FROM \`collaborators\` WHERE \`collaborator_id\` = ?
+                `;
+                return mysql.query(query, [user_id]);
+            }
+        }).then(stashes => {
+            if (stashes.length == 0) {
+                res.status(200).send([]);
+            } else {
+                // Store the ids into an array
+                let stashIds = [];
+                _.each(stashes, stash => {
+                    stashIds.push(stash.stash_id);
+                });
+                // Retrieve the actual stashes
+                let queryString = '';
+                _.each(stashes, stash => {
+                    queryString += "? ,";
+                });
+                queryString = queryString.slice(0, -2); // Remove last ','
+
+                let query = `
+                    SELECT * FROM \`stash_basic_information\` 
+                    WHERE \`stash_id\` IN (${queryString})
+                `;
+                return mysql.query(query, stashIds);
+            }
+        }).then(stashes => {
+            res.status(200).send(stashes);
+            console.log('Successfully retrieved shared stashes.\n');
+        }).catch(error => errorService.handleError(error));
     }
 }
 
@@ -170,5 +230,6 @@ module.exports = {
     deleteStash: deleteStash,
     getStashesForUser: getStashesForUser,
     getStash: getStash,
-    updateStash: updateStash
+    updateStash: updateStash,
+    getSharedStashesForUser: getSharedStashesForUser
 }
