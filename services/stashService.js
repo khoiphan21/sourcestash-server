@@ -42,7 +42,7 @@ function createNewStash(req, res, next) {
             res.status(201).send('Stash successfully created.');
             console.log('Stash successfully created.');
             console.log('Adding root source for the new stash.');
-            sourceService.createRootSource(stashTitle, stash_id, author_id);
+            sourceService.createRootSource(stashTitle, stash_id, author_id, description);
             console.log('All operations finished.\n');
         }).catch(error => {
             errorService.handleError(error, res);
@@ -170,7 +170,7 @@ function getStash(req, res, next) {
     let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` = ?';
     mysql.query(query, [stash_id]).then(rows => {
         if (rows[0] == undefined) {
-            return Promise.reject('Stash does not exist');
+            return Promise.reject({ reason: 'Stash does not exist' });
         } else {
             res.status(200).send(rows[0]);
             console.log('Stash retrieval successful.\n');

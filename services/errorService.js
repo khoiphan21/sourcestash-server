@@ -3,8 +3,7 @@
 function handleError(error, response) {
     if (error.reason) {
         // Predicted error
-        response.status(400).send(error.reason);
-        console.log(`${error.reason}\n`);
+        handleMissingParamError(error.reason, response);
     } else {
         // Internal error, maybe SQL injection
         response.status(500).send('Unknown Server Error');

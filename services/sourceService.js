@@ -292,7 +292,7 @@ function isAnySourceParamMissing(source, isIDPresent = false) {
 }
 
 // Create a root source
-function createRootSource(title, stash_id, author_id) {
+function createRootSource(title, stash_id, author_id, description) {
     let source = {};
     // Populate the source object with the values
     source.source_id = logic.generateUID();
@@ -301,7 +301,7 @@ function createRootSource(title, stash_id, author_id) {
     source.author_id = author_id;
     source.hyperlink = '';
     source.title = title;
-    source.description = '';
+    source.description = description;
     source.type = 'root';
     source.difficulty = '';
     source.xPosition = 0;
