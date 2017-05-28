@@ -36,13 +36,6 @@ function createNewStash(req, res, next) {
                     INSERT INTO stash_basic_information (stash_id, title, description, author_id)
                     VALUES (?, ?, ?, ?)
                 `;
-                // let query = 'INSERT INTO `stash_basic_information` ' +
-                //     '(`stash_id`, `title`, `description`, `author_id`) VALUES ' + '(' +
-                //     '\'' + stash_id + '\',' +
-                //     '\'' + stashTitle + '\',' +
-                //     '\'' + description + '\',' +
-                //     '\'' + author_id + '\'' +
-                //     ')';
                 return mysql.query(query, [stash_id, stashTitle, description, author_id])
             }
         }).then(rows => {
