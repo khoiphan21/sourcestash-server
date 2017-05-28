@@ -32,13 +32,17 @@ function createNewStash(req, res, next) {
                 return Promise.reject({ reason: 'Stash already existed.' })
             } else {
                 // Add the stash to the database
-                let query = 'INSERT INTO `stash_basic_information` ' +
-                    '(`stash_id`, `title`, `description`, `author_id`) VALUES ' + '(' +
-                    '\'' + stash_id + '\',' +
-                    '\'' + stashTitle + '\',' +
-                    '\'' + description + '\',' +
-                    '\'' + author_id + '\'' +
-                    ')';
+                let query = `
+                    INSERT INTO stash_basic_information (stash_id, title, description, author_id)
+                    VALUES (?, ?, ?, ?)
+                `;
+                // let query = 'INSERT INTO `stash_basic_information` ' +
+                //     '(`stash_id`, `title`, `description`, `author_id`) VALUES ' + '(' +
+                //     '\'' + stash_id + '\',' +
+                //     '\'' + stashTitle + '\',' +
+                //     '\'' + description + '\',' +
+                //     '\'' + author_id + '\'' +
+                //     ')';
                 return mysql.query(query, [stash_id, stashTitle, description, author_id])
             }
         }).then(rows => {
