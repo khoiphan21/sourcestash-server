@@ -223,6 +223,42 @@ function createNewSource(req, res, next) {
     }
 }
 
+// GET THE TAGS FOR A SOURCE
+function getAllTags(req, res, next) {
+    console.log('Request received to get all tags for a source');
+    let source_id = req.body.source_id;
+    if (source_id == null) {
+        errorService.handleMissingParamError('Source ID is missing', res);
+    } else {
+        // Check if the source exist
+        let checkQuery = `
+            SELECT * FROM source_basic_information WHERE source_id = ?
+        `;
+        mysql.query(checkQuery, [source_id]).then(rows => {
+            if (rows.length == 0) {
+                errorService.handleMissingParamError('Source does not exist', res);
+            } else {
+                // grab all tags that belong to the source
+                let query = `
+                    SELECT tag FROM tags_list WHERE source_id = ?
+                `;
+                return mysql.query(query, [source_id])
+            }
+        }).then(tags => {
+            // Re-organize the tags into an array of strings
+            let tagsArray = [];
+            _.forEach(tags, tag => {
+                tagsArray.push(tag.tag);
+            });
+
+            res.status(200).send(tagsArray);
+            console.log('Successfully retrieved tags.\n');
+        }).catch(error => {
+            errorService.handleError(error);
+        });
+    }
+}
+
 /**
  * HELPER FUNCTIONS
  */
@@ -380,5 +416,6 @@ module.exports = {
     deleteSource: deleteSource,
     updatePosition: updatePosition,
     updateSource: updateSource,
-    getSource: getSource
+    getSource: getSource,
+    getAllTags: getAllTags
 }

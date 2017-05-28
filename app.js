@@ -74,6 +74,7 @@ app.post('/source/single', sourceService.getSource);
 app.post('/source/delete/:source_id', sourceService.deleteSource);
 app.post('/source/update/position', sourceService.updatePosition);
 app.post('/source/update', sourceService.updateSource);
+app.post('/tags/forsource', sourceService.getAllTags);
 
 /**
  * API FOR STASH SERVICES

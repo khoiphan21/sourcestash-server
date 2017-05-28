@@ -7,11 +7,17 @@ function handleError(error, response) {
         console.log(`${error.reason}\n`);
     } else {
         // Internal error, maybe SQL injection
-        response.status(500).send('Unknwon Server Error');
+        response.status(500).send('Unknown Server Error');
         throw error;
     }
 }
 
+function handleMissingParamError(reason, response) {
+    response.status(400).send(reason);
+    console.log(`${reason}\n`);
+}
+
 module.exports = {
-    handleError: handleError
+    handleError: handleError,
+    handleMissingParamError: handleMissingParamError
 }
