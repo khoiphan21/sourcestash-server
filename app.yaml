@@ -20,8 +20,6 @@ env_variables:
   MYSQL_USER: root
   MYSQL_PASSWORD: sourcestashuq2017
   MYSQL_DATABASE: source_stash
-  INSTANCE_CONNECTION_NAME: source-stash-beta:asia-east1:source-stash-beta-sql
+  INSTANCE_CONNECTION_NAME: source-stash-beta-2:asia-east1:sourcestash-database
 
-beta_settings:
-  cloud_sql_instances: source-stash-beta:asia-east1:source-stash-beta-sql
 # [END app_yaml]

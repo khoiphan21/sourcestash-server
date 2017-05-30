@@ -12,9 +12,8 @@ if (process.env.INSTANCE_CONNECTION_NAME) {
     config.socketPath = `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`;
 } else {
     config = {
-        host: '104.199.209.1',
+        host: 'localhost',
         user: 'root',
-        password: 'sourcestashuq2017',
         database: 'source_stash'
     }
 }
