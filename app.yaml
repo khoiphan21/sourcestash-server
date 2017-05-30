@@ -22,4 +22,6 @@ env_variables:
   MYSQL_DATABASE: source_stash
   INSTANCE_CONNECTION_NAME: source-stash-beta-2:asia-east1:sourcestash-database
 
+beta_settings:
+  cloud_sql_instances: source-stash-beta-2:asia-east1:sourcestash-database
 # [END app_yaml]
