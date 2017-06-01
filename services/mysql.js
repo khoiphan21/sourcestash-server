@@ -4,6 +4,7 @@ let mysqlModule = require('mysql');
 
 let config;
 if (process.env.INSTANCE_CONNECTION_NAME) {
+    console.log('Connecting to remote database');
     config = {
         user: process.env.MYSQL_USER,
         password: process.env.MYSQL_PASSWORD,
@@ -11,6 +12,7 @@ if (process.env.INSTANCE_CONNECTION_NAME) {
     }
     config.socketPath = `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`;
 } else {
+    console.log('Connecting to local database');
     config = {
         host: 'localhost',
         user: 'root',
