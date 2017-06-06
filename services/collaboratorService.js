@@ -7,14 +7,14 @@ var _ = require('underscore');
 var mysql = require('./mysqlPromise');
 var logic = require('./logic');
 var mock = require('./mockParams');
+var errorService = require('./errorService');
 
 function removeCollaborator(req, res, next) {
     console.log('Request received to remove a collaborator.');
     let collaborator_id = req.body.collaborator_id;
     let stash_id = req.body.stash_id;
     if (collaborator_id == null || stash_id == null) {
-        res.status(400).send('Bad request: collaborator and stash ids are needed');
-        console.log('Removal failed: missing parameters.\n');
+        errorService.handleMissingParam('Bad request: collaborator and stash ids are needed', res);
     } else {
         // Check if the stash id is valid
         let checkQuery = `
@@ -43,21 +43,17 @@ function removeCollaborator(req, res, next) {
         }).then(rows => {
             // Should be okay now. Delete from collaborators
             let query = "DELETE FROM `collaborators` WHERE `stash_id`= ? AND `collaborator_id` = ?";
-            mysql.query(query, [stash_id, collaborator_id]).then(rows => {
-                res.status(200).send('Successfully removed collaborator');
-                console.log('Successfully removed collaborator.\n');
-            }).catch(error => {
-                throw error;
-            });
+            return mysql.query(query, [stash_id, collaborator_id])
+        }).then(rows => {
+            res.status(200).send('Successfully removed collaborator');
+            console.log('Successfully removed collaborator.\n');
         }).catch(error => {
             if (error.reason) {
-                res.status(400).send(error.reason); // Server Caught
-                console.log(`${error.reason}\n`);
+                errorService.handleIncorrectParam(error.reason, res);
             } else {
-                res.status(500).send('Unknown error occurred.');
-                console.log(error)
+                errorService.handleServerError(error, res);
             }
-        })
+        });
     }
 }
 
@@ -75,8 +71,7 @@ function updateCollaborator(req, res, next) {
         collaborators === null ||
         collaborators.length === null
     ) {
-        res.status(400).send('Invalid parameters, a stash id and collaborator list is needed.');
-        console.log('Update request failed: Invalid parameters.\n')
+        errorService.handleMissingParam('a stash id and collaborator list is needed.', res);
     } else if (collaborators.length == 0) {
         // Simply remove all entries of collaborators
         // Delete the currently stored list of collabs in the database
@@ -89,8 +84,7 @@ function updateCollaborator(req, res, next) {
         `;
         mysql.query(checkQuery, stash_id).then(rows => {
             if (rows.length == 0) {
-                res.status(404).send('The stash does not exist.');
-                console.log('Bad request: stash does not exist.\n');
+                return Promise.reject({ reason: 'The stash does not exist.' })
             } else {
                 // TODO: IMPROVE THIS
                 // Now check if the user exists
@@ -109,8 +103,7 @@ function updateCollaborator(req, res, next) {
         }).then(rows => {
             // Check if the number of users match number of collaborators
             if (rows.length != collaborators.length) {
-                res.status(400).send('Bad collaborators parameter.');
-                console.log('Update failed: bad collaborators parameter.\n');
+                return Promise.reject({ reason: 'Bad collaborators parameter' });
             } else {
                 // Now then update the table of collaborators
                 if (collaborators.length != 0) {
@@ -120,7 +113,11 @@ function updateCollaborator(req, res, next) {
                 console.log('Collaborators updated successfully.\n');
             }
         }).catch(error => {
-            throw error;
+            if (error.reason) {
+                errorService.handleIncorrectParam(error.reason, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
         })
     }
 }
@@ -129,8 +126,7 @@ function getCollaborators(req, res, next) {
     console.log('Request received to get collaborators for a stash.');
     let stash_id = req.body.stash_id;
     if (stash_id == null) {
-        res.status(400).send('Missing stash id.');
-        console.log('Retrieval failed: missing stash id.\n');
+        errorService.handleMissingParam('Missing stash id.', res);
     } else {
         let checkQuery = `
             SELECT * FROM \`stash_basic_information\` 
@@ -138,8 +134,7 @@ function getCollaborators(req, res, next) {
         `;
         mysql.query(checkQuery, stash_id).then(rows => {
             if (rows.length == 0) {
-                res.status(404).send('Stash does not exist.');
-                console.log('Retrieval failed: stash does not exist.\n');
+                return Promise.reject({ reason: 'Stash does not exist' })
             } else {
                 let query = `
                     SELECT * FROM \`collaborators\` WHERE \`stash_id\`=?
@@ -154,7 +149,11 @@ function getCollaborators(req, res, next) {
             res.status(200).send(collaboratorList);
             console.log('Retrieving collaborators successful.\n');
         }).catch(error => {
-            throw error;
+            if (error.reason) {
+                errorService.handleIncorrectParam(error.reason, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
         })
     }
 }
@@ -170,7 +169,7 @@ function addCollaborator(stash_id, user_id) {
         VALUES (? , ?)
     `;
     mysql.query(query, [stash_id, user_id]).catch(error => {
-        throw (error);
+        throw error;
     });
 }
 

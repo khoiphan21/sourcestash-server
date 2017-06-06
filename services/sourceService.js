@@ -17,8 +17,7 @@ function updateSource(req, res, next) {
     let source = req.body.source;
     let isIDPresent = true;
     if (isAnySourceParamMissing(source, isIDPresent)) {
-        res.status(400).send('Missing parameters for updating a source');
-        console.log('Update failed: bad request syntax - one or more parameters are missing.\n')
+        errorService.handleMissingParam('Missing parameters for updating a source', res);
     } else {
         // Check if the source exists
         let checkQuery = `
@@ -55,7 +54,11 @@ function updateSource(req, res, next) {
             // Update the tags
             updateTags(source.source_id, source.tags);
         }).catch(error => {
-            errorService.handleError(error, res);
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
         });
     }
 }
@@ -69,8 +72,8 @@ function updatePosition(req, res, next) {
         coords.xPosition == null ||
         coords.yPosition == null
     ) {
-        console.log('Missing parameters\n');
-        res.status(400).send('Some parameters are missing. "source_id", "xPosition" and "yPosition" are needed.');
+        errorService.handleMissingParam(`Some parameters are missing. "source_id", 
+        "xPosition" and "yPosition" are needed.`, res);
     }
 
     let checkQuery = 'SELECT * FROM `source_basic_information` WHERE `source_basic_information`.`source_id` = ?'
@@ -86,7 +89,11 @@ function updatePosition(req, res, next) {
         console.log('Successfully updated location of source: ' + coords.source_id);
         res.status(200).send('Successfully updated location for source: ' + coords.source_id);
     }).catch(error => {
-        errorService.handleError(error, res);
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
     })
 }
 
@@ -96,7 +103,7 @@ function getSourcesForStash(req, res, next) {
     let stash_id = req.body.stash_id;
 
     if (stash_id == null) {
-        res.status(400).send('Missing stash id parameter');
+        errorService.handleMissingParam('Missing stash id.', res);
         return;
     }
 
@@ -108,7 +115,7 @@ function getSourcesForStash(req, res, next) {
 
         console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
     }).catch(error => {
-        errorService.handleError(error, res);
+        errorService.handleServerError(error, res);
     })
 }
 
@@ -117,9 +124,7 @@ function getSource(req, res, next) {
     console.log('Request received to get a specific source.');
     let source_id = req.body.source_id;
     if (source_id == null) {
-        res.status(400).send('Bad request: source_id is missing.');
-        console.log('Retrieval failed: missing parameter.\n');
-        return;
+        errorService.handleMissingParam('Bad request: source_id is missing.', res);
     } else {
         let query = 'SELECT * FROM `source_basic_information` WHERE ' +
             '`source_basic_information`.`source_id` = ? ';
@@ -131,7 +136,11 @@ function getSource(req, res, next) {
                 return Promise.reject({ reason: 'The source requested does not exist' });
             }
         }).catch(error => {
-            errorService.handleError(error, res);
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
         })
     }
 }
@@ -142,29 +151,33 @@ function deleteSource(req, res, next) {
 
     let source_id = req.body.source_id;
     if (source_id == null) {
-        res.status(400).send('Source ID is misssing');
-        return;
-    }
+        errorService.handleMissingParam('Source ID is missing.', res);
+    } else {
 
-    let checkQuery = 'SELECT * FROM `source_basic_information` WHERE ' +
-        '`source_basic_information`.`source_id` = ?';
-    mysql.query(checkQuery, source_id).then(rows => {
-        if (rows[0] != undefined) {
-            // The source exist. First swap the parent_id
-            let swapQuery = ''
-                // Delete it now.
-            let query = 'DELETE FROM `source_basic_information` WHERE ' +
-                '`source_basic_information`.`source_id`= ?';
-            return mysql.query(query, source_id)
-        } else {
-            return Promise.reject({ reason: 'Source not found.\n' })
-        }
-    }).then(rows => {
-        console.log('Source successfully deleted\n');
-        res.status(200).send('Source successfully deleted');
-    }).catch(error => {
-        errorService.handleError(error, res);
-    })
+        let checkQuery = 'SELECT * FROM `source_basic_information` WHERE ' +
+            '`source_basic_information`.`source_id` = ?';
+        mysql.query(checkQuery, source_id).then(rows => {
+            if (rows[0] != undefined) {
+                // The source exist. First swap the parent_id
+                let swapQuery = ''
+                    // Delete it now.
+                let query = 'DELETE FROM `source_basic_information` WHERE ' +
+                    '`source_basic_information`.`source_id`= ?';
+                return mysql.query(query, source_id)
+            } else {
+                return Promise.reject({ reason: 'Source not found.\n' })
+            }
+        }).then(rows => {
+            console.log('Source successfully deleted\n');
+            res.status(200).send('Source successfully deleted');
+        }).catch(error => {
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
+    }
 }
 
 // CREATE A NEW SOURCE
@@ -179,8 +192,7 @@ function createNewSource(req, res, next) {
     source.source_id = id;
 
     if (isAnySourceParamMissing(source)) {
-        res.status(400).send('Missing parameters for adding a source');
-        console.log('Creation failed: one or more parameters are missing.\n')
+        errorService.handleMissingParam('Missing parameters for adding a source', res);
     } else {
         // TODO: CHECK IF THE ID ALREADY EXISTS!
 
@@ -218,8 +230,12 @@ function createNewSource(req, res, next) {
                 addTag(id, source.tags[i]);
             }
         }).catch(error => {
-            errorService.handleError(error, res);
-        })
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
     }
 }
 
@@ -228,7 +244,7 @@ function getAllTags(req, res, next) {
     console.log('Request received to get all tags for a source');
     let source_id = req.body.source_id;
     if (source_id == null) {
-        errorService.handleMissingParamError('Source ID is missing', res);
+        errorService.handleMissingParam('Source ID is missing', res);
     } else {
         // Check if the source exist
         let checkQuery = `
@@ -236,7 +252,7 @@ function getAllTags(req, res, next) {
         `;
         mysql.query(checkQuery, [source_id]).then(rows => {
             if (rows.length == 0) {
-                errorService.handleMissingParamError('Source does not exist', res);
+                errorService.handleMissingParam('Source does not exist', res);
             } else {
                 // grab all tags that belong to the source
                 let query = `
@@ -254,7 +270,7 @@ function getAllTags(req, res, next) {
             res.status(200).send(tagsArray);
             console.log('Successfully retrieved tags.\n');
         }).catch(error => {
-            errorService.handleError(error);
+            errorService.handleServerError(error, res);
         });
     }
 }

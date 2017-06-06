@@ -1,22 +1,29 @@
 'use strict';
 
-function handleError(error, response) {
-    if (error.reason) {
-        // Predicted error
-        handleMissingParamError(error.reason, response);
-    } else {
-        // Internal error, maybe SQL injection
-        response.status(500).send('Unknown Server Error');
-        throw error;
-    }
+function handleServerError(error, response) {
+    // Internal error, maybe SQL injection
+    response.status(500).send('Unknown Server Error');
+    throw error;
 }
 
-function handleMissingParamError(reason, response) {
+function handleMissingParam(reason, response) {
     response.status(400).send(reason);
     console.log(`${reason}\n`);
 }
 
+function handleIncorrectParam(reason, response) {
+    response.status(400).send(reason);
+    console.log(`${reason}\n`);
+}
+
+function handleResourceNotFound(reason, response) {
+    response.status(404).send(reason);
+    console.log(`${reason}\n`);
+}
+
 module.exports = {
-    handleError: handleError,
-    handleMissingParamError: handleMissingParamError
+    handleServerError: handleServerError,
+    handleMissingParam: handleMissingParam,
+    handleIncorrectParam: handleIncorrectParam,
+    handleResourceNotFound: handleResourceNotFound
 }
