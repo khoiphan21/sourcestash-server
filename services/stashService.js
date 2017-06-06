@@ -17,9 +17,7 @@ function createNewStash(req, res, next) {
         req.body.stash.title == null ||
         req.body.stash.description == null
     ) {
-        res.status(400).send('A Stash needs author id, title and description\n');
-        console.log('Bad request.\n');
-        return;
+        errorService.handleMissingParam('A Stash needs author id, title and description', res);
     } else {
         // Check if the stash already exists
         let stashTitle = req.body.stash.title;
@@ -45,8 +43,12 @@ function createNewStash(req, res, next) {
             sourceService.createRootSource(stashTitle, stash_id, author_id, description);
             console.log('All operations finished.\n');
         }).catch(error => {
-            errorService.handleError(error, res);
-        })
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
     }
 }
 
@@ -57,8 +59,7 @@ function deleteStash(req, res, next) {
         req.body.stash.title == null ||
         req.body.stash.description == null
     ) {
-        res.status(400).send('A Stash needs author id, title and description\n');
-        return;
+        errorService.handleMissingParam('A Stash needs author id, title and description', res);
     } else {
         // Check if the stash exists
         let stash_id = req.body.stash.stash_id;
@@ -81,24 +82,27 @@ function deleteStash(req, res, next) {
             let query = "DELETE FROM `source_basic_information` WHERE" +
                 "`stash_id`= ? AND `type`='root'";
             return mysql.query(query, [stash_id]);
-        }).catch(error => errorService.handleError(error, res));
+        }).catch(error => {
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
     }
 }
 
 function getSharedStashesForUser(req, res, next) {
     console.log('Request received to get shared stashes for a user');
-    console.log(req.body.user_id);
     let user_id = req.body.user_id;
     if (user_id == null) {
-        res.status(400).send('Request failed: missing parameter.');
-        console.log('Failed to get shared stashes: missing user_id');
+        errorService.handleMissingParam('Request failed: missing parameter.', res);
     } else {
-        console.log(user_id);
         // Check if the user exists
         let checkQuery = "SELECT * FROM `user_basic_information` WHERE `user_id` = ?";
         mysql.query(checkQuery, [user_id]).then(rows => {
             if (rows.length == 0) {
-                return Promise.reject('User does not exist');
+                return Promise.reject({ reason: 'User does not exist' });
             } else {
                 // Find out what stashes are shared to them
                 let query = `
@@ -131,40 +135,52 @@ function getSharedStashesForUser(req, res, next) {
         }).then(stashes => {
             res.status(200).send(stashes);
             console.log('Successfully retrieved shared stashes.\n');
-        }).catch(error => errorService.handleError(error));
+        }).catch(error => {
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
     }
 }
 
 function getStashesForUser(req, res, next) {
     console.log('req received to retrieve stashes for a user.');
     if (req.params.useremail == null) {
-        res.status(404).send('User with the given ID does not exist');
+        errorService.handleResourceNotFound('User with the given ID does not exist', res);
         return;
     }
-    let user_id = logic.hash(req.params.useremail);
-    console.log('Retrieving stashes for user with id: ' + user_id);
 
     // Now check the database to see if the user already exist. Note that id is casted
     // to a string. 
-    let checkQuery = 'SELECT * FROM `user_basic_information` WHERE `user_id` = ?';
-    mysql.query(checkQuery, [user_id]).then(rows => {
+    let checkQuery = 'SELECT `user_id` FROM `user_basic_information` WHERE `email` = ?';
+    mysql.query(checkQuery, [req.params.useremail]).then(rows => {
         if (rows.length == 0) {
             return Promise.reject({ reason: 'User does not exist' });
         } else {
+            let id = rows[0].user_id;
+            console.log(id);
             let query = 'SELECT * FROM `stash_basic_information` WHERE `author_id` = ?';
-            return mysql.query(query, [user_id])
+            return mysql.query(query, [id])
         }
     }).then(rows => {
         // If no error, return the rows to the main app
         res.status(200).send(rows);
         console.log('Retrieval successful.\n');
-    }).catch(error => errorService.handleError(error, res));
+    }).catch(error => {
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
+    });
 }
 
 function getStash(req, res, next) {
     console.log('Request received to retrieve a stash');
     if (req.params.stash_id == null) {
-        res.status(404).send('The stash does not exist');
+        errorService.handleMissingParam('Missing stash id.', res);
     }
     let stash_id = req.params.stash_id;
     let query = 'SELECT * FROM `stash_basic_information` WHERE `stash_id` = ?';
@@ -175,7 +191,13 @@ function getStash(req, res, next) {
             res.status(200).send(rows[0]);
             console.log('Stash retrieval successful.\n');
         }
-    }).catch(error => errorService.handleError(error, res));
+    }).catch(error => {
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
+    });
 }
 
 // UPDATE THE CONTENT OF A STASH
@@ -188,8 +210,7 @@ function updateStash(req, res, next) {
         stash.title == null ||
         stash.description == null
     ) {
-        res.status(400).send('Missing parameters.');
-        console.log('Stash update failed: Missing parameters.\n');
+        errorService.handleMissingParam('Missing parameters: author_id, stash_id, title and description needed', res);
     } else {
         // Check if the stash exists
         let query = `
@@ -218,7 +239,13 @@ function updateStash(req, res, next) {
         }).then(() => {
             res.status(200).send('Stash successfully updated');
             console.log('Stash successfully updated.\n');
-        }).catch(error => errorService.handleError(error, res));
+        }).catch(error => {
+            if (error.reason) {
+                errorService.handleIncorrectParam(error, res);
+            } else {
+                errorService.handleServerError(error, res);
+            }
+        });
     }
 }
 
