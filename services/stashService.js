@@ -211,42 +211,53 @@ function updateStash(req, res, next) {
         stash.description == null
     ) {
         errorService.handleMissingParam('Missing parameters: author_id, stash_id, title and description needed', res);
-    } else {
-        // Check if the stash exists
-        let query = `
+        return;
+    }
+    // Check if the stash exists
+    let query = `
             SELECT * FROM \`stash_basic_information\` 
             WHERE \`stash_basic_information\`.\`stash_id\` = ?
         `;
-        mysql.query(query, [stash.stash_id]).then(rows => {
-            if (rows[0] == undefined) {
-                return Promise.reject({ reason: 'The stash does not exist.' });
-            } else {
-                // Update the content of the stash
-                let query = `
+    mysql.query(query, [stash.stash_id]).then(rows => {
+        if (rows[0] == undefined) {
+            return Promise.reject({ reason: 'The stash does not exist.' });
+        } else {
+            // Update the content of the stash
+            let query = `
                     UPDATE \`stash_basic_information\` SET 
                     \`stash_id\` = ? , \`title\` = ? ,
                     \`description\` = ? ,\`author_id\` = ?  
                     WHERE \`stash_basic_information\`.\`stash_id\` = ?
                 `;
-                return mysql.query(query, [
-                    stash.stash_id,
-                    stash.title,
-                    stash.description,
-                    stash.author_id,
-                    stash.stash_id
-                ])
-            }
-        }).then(() => {
-            res.status(200).send('Stash successfully updated');
-            console.log('Stash successfully updated.\n');
-        }).catch(error => {
-            if (error.reason) {
-                errorService.handleIncorrectParam(error, res);
-            } else {
-                errorService.handleServerError(error, res);
-            }
-        });
-    }
+            return mysql.query(query, [
+                stash.stash_id,
+                stash.title,
+                stash.description,
+                stash.author_id,
+                stash.stash_id
+            ])
+        }
+    }).then(() => {
+        res.status(200).send('Stash successfully updated');
+
+        // Now update the root source's title
+        sourceService.updateRootSource(stash.stash_id, stash.title);
+
+        console.log('Stash successfully updated.\n');
+    }).catch(error => {
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
+    });
+}
+
+/******************
+ * HELPER FUNCTIONS
+ ******************/
+function updateRootSource(stashId, stashTitle) {
+
 }
 
 module.exports = {

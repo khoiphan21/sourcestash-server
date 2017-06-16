@@ -346,6 +346,24 @@ function createRootSource(title, stash_id, author_id, description) {
     })
 }
 
+/**
+ * Update the root source of the stash with the given id with the new title
+ * 
+ * @param {*} stashId - the id of the stash whose root source is to be updated
+ * @param {*} newTitle - the new title of the root source
+ */
+function updateRootSource(stashId, newTitle) {
+    let query = `
+        UPDATE source_basic_information SET title = ?
+        WHERE stash_id = ? AND type = 'root'
+    `;
+    mysql.query(query, [newTitle, stashId]).then(() => {
+        console.log('Updated root source successfully.\n');
+    }).catch(error => {
+        throw error;
+    });
+}
+
 // Update the list of tags for the source
 // This function assumes that tags is an array
 function updateTags(source_id, tags) {
@@ -427,6 +445,7 @@ function addTag(source_id, tag) {
 
 module.exports = {
     createRootSource: createRootSource,
+    updateRootSource: updateRootSource,
     createNewSource: createNewSource,
     getSourcesForStash: getSourcesForStash,
     deleteSource: deleteSource,
