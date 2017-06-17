@@ -145,11 +145,17 @@ function getSource(req, res, next) {
     }
 }
 
+deleteSource(mock.request, mock.response)
+
 // DELETE A SOURCE
 function deleteSource(req, res, next) {
     console.log('Request to delete source received.');
 
     let source_id = req.body.source_id;
+
+    let childSourceIds = [];
+    let parentSourceId = null;
+
     if (source_id == null) {
         errorService.handleMissingParam('Source ID is missing.', res);
     } else {
@@ -158,15 +164,45 @@ function deleteSource(req, res, next) {
             '`source_basic_information`.`source_id` = ?';
         mysql.query(checkQuery, source_id).then(rows => {
             if (rows[0] != undefined) {
-                // The source exist. First swap the parent_id
-                let swapQuery = ''
-                    // Delete it now.
-                let query = 'DELETE FROM `source_basic_information` WHERE ' +
-                    '`source_basic_information`.`source_id`= ?';
-                return mysql.query(query, source_id)
+                // The source exist. First store the parent id
+                parentSourceId = rows[0].parent_id;
+
+                // Then find all the child sources
+                let query = `
+                    SELECT * FROM source_basic_information WHERE
+                    parent_id = ?
+                `;
+                return mysql.query(query, [source_id]);
             } else {
                 return Promise.reject({ reason: 'Source not found.\n' })
             }
+        }).then(childSources => {
+            // Now update the parent_ids of the child sources
+            // First store all the child source ids into an array
+            _.each(childSources, source => {
+                childSourceIds.push(source.source_id);
+            });
+            // Build the update query 
+            let query = `UPDATE source_basic_information SET parent_id = ? WHERE `;
+            _.each(childSourceIds, id => {
+                query += 'source_id = ? OR ';
+            });
+            // trime the last 4 characters
+            query = query.slice(0, -3);
+
+            // Setup the query parameter
+            let queryParams = [];
+            queryParams.push(parentSourceId);
+            _.each(childSourceIds, id => {
+                queryParams.push(id);
+            });
+
+            return mysql.query(query, queryParams);
+        }).then(() => {
+            // Delete it now.
+            let query = 'DELETE FROM `source_basic_information` WHERE ' +
+                '`source_basic_information`.`source_id`= ?';
+            return mysql.query(query, [source_id]);
         }).then(rows => {
             console.log('Source successfully deleted\n');
             res.status(200).send('Source successfully deleted');
