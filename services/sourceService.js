@@ -26,7 +26,9 @@ function updateSource(req, res, next) {
             `;
         mysql.query(checkQuery, [source.source_id]).then(rows => {
             if (rows[0] == undefined) {
-                return Promise.reject({ reason: 'The source does not exist.' })
+                return Promise.reject({
+                    reason: 'The source does not exist.'
+                })
             } else {
                 // Update the source
                 let query = `
@@ -79,7 +81,9 @@ function updatePosition(req, res, next) {
     let checkQuery = 'SELECT * FROM `source_basic_information` WHERE `source_basic_information`.`source_id` = ?'
     mysql.query(checkQuery, coords.source_id).then(rows => {
         if (rows[0] == undefined) {
-            return Promise.reject({ reason: 'Source with the given id does not exist' });
+            return Promise.reject({
+                reason: 'Source with the given id does not exist'
+            });
         } else {
             let query = 'UPDATE `source_basic_information` SET `xPosition` = ?, `yPosition` = ? ' +
                 'WHERE `source_basic_information`.`source_id` = ?';
@@ -133,7 +137,9 @@ function getSource(req, res, next) {
                 res.status(200).send(rows[0]);
                 console.log('Source retrieval successful.\n');
             } else {
-                return Promise.reject({ reason: 'The source requested does not exist' });
+                return Promise.reject({
+                    reason: 'The source requested does not exist'
+                });
             }
         }).catch(error => {
             if (error.reason) {
@@ -144,8 +150,6 @@ function getSource(req, res, next) {
         })
     }
 }
-
-deleteSource(mock.request, mock.response)
 
 // DELETE A SOURCE
 function deleteSource(req, res, next) {
@@ -174,30 +178,38 @@ function deleteSource(req, res, next) {
                 `;
                 return mysql.query(query, [source_id]);
             } else {
-                return Promise.reject({ reason: 'Source not found.\n' })
+                return Promise.reject({
+                    reason: 'Source not found.\n'
+                })
             }
         }).then(childSources => {
-            // Now update the parent_ids of the child sources
-            // First store all the child source ids into an array
-            _.each(childSources, source => {
-                childSourceIds.push(source.source_id);
-            });
-            // Build the update query 
-            let query = `UPDATE source_basic_information SET parent_id = ? WHERE `;
-            _.each(childSourceIds, id => {
-                query += 'source_id = ? OR ';
-            });
-            // trime the last 4 characters
-            query = query.slice(0, -3);
+            // Check if there is any child source
+            if (childSources.length != 0) {
+                // Now update the parent_ids of the child sources
+                // First store all the child source ids into an array
+                _.each(childSources, source => {
+                    childSourceIds.push(source.source_id);
+                });
+                // Build the update query 
+                let query = `UPDATE source_basic_information SET parent_id = ? WHERE `;
+                _.each(childSourceIds, id => {
+                    query += 'source_id = ? OR ';
+                });
+                // trime the last 4 characters
+                query = query.slice(0, -3);
 
-            // Setup the query parameter
-            let queryParams = [];
-            queryParams.push(parentSourceId);
-            _.each(childSourceIds, id => {
-                queryParams.push(id);
-            });
+                // Setup the query parameter
+                let queryParams = [];
+                queryParams.push(parentSourceId);
+                _.each(childSourceIds, id => {
+                    queryParams.push(id);
+                });
 
-            return mysql.query(query, queryParams);
+                return mysql.query(query, queryParams);
+            } else {
+                // No need to swap parent_ids for child sources
+                return Promise.resolve(true);
+            }
         }).then(() => {
             // Delete it now.
             let query = 'DELETE FROM `source_basic_information` WHERE ' +
@@ -237,7 +249,9 @@ function createNewSource(req, res, next) {
             '`source_id` = ?';
         mysql.query(checkQuery, id).then(rows => {
             if (rows.length != 0) {
-                return Promise.reject({ reason: 'Internal error: unable to add source' })
+                return Promise.reject({
+                    reason: 'Internal error: unable to add source'
+                })
             } else {
                 return Promise.resolve();
             }
@@ -434,30 +448,32 @@ function updateTags(source_id, tags) {
             // array of tags already contain it.
             // if not, delete the tag from the database
             _.each(storedTags, tag => {
-                    let doesExist = false;
-                    doesExist = _.findKey(tagDictionary, (value, key) => {
-                        if (key === tag) return true;
-                    });
-                    if (!doesExist) {
-                        // now delete the tag from the database
-                        let query = `
+                let doesExist = false;
+                doesExist = _.findKey(tagDictionary, (value, key) => {
+                    if (key === tag) return true;
+                });
+                if (!doesExist) {
+                    // now delete the tag from the database
+                    let query = `
                             DELETE FROM \`tags_list\` 
                             WHERE \`tags_list\`.\`tag\`= ? 
                             AND \`tags_list\`.\`source_id\`= ?
                         `;
-                        mysql.query(query, [tag, source_id]);
-                    } else {
-                        // Set the flag in the tagDictionary
-                        tagDictionary[tag] = true;
-                    }
-                })
-                // Loop through each tag in the array to see if it is already in the database
-                // if not, add that to the database
+                    mysql.query(query, [tag, source_id]);
+                } else {
+                    // Set the flag in the tagDictionary
+                    tagDictionary[tag] = true;
+                }
+            })
+            // Loop through each tag in the array to see if it is already in the database
+            // if not, add that to the database
             _.each(tagDictionary, (isInDatabase, tag) => {
                 if (!isInDatabase) {
                     // add to the database
                     let query = "INSERT INTO `tags_list` (`tag`, `source_id`) VALUES (? , ?)";
-                    mysql.query(query, [tag, source_id]).catch(error => { throw error; })
+                    mysql.query(query, [tag, source_id]).catch(error => {
+                        throw error;
+                    })
                 }
             })
         }
