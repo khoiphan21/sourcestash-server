@@ -26,6 +26,7 @@ var authService = require('./services/authService');
 var sourceService = require('./services/sourceService');
 var stashService = require('./services/stashService');
 var cardService = require('./services/cardService');
+var boardService = require('./services/boardService')
 var collaboratorService = require('./services/collaboratorService');
 var mysql = require('./services/mysql');
 var logic = require('./services/logic');
@@ -64,6 +65,14 @@ app.get('/', (req, res) => {
         <a href=${url}>Login</a>
     `)
 });
+
+/**
+ * API FOR BOARD SERVICES
+ */
+app.post('/board/new', boardService.newBoard)
+app.post('/board/all', boardService.getAllBoards)
+app.post('/board/update', boardService.updateBoard)
+app.post('/board/delete', boardService.deleteBoard)
 
 /**
  * API FOR CARD SERVICES
