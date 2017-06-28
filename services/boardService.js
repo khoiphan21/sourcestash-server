@@ -67,10 +67,40 @@ function getAllBoards(req, res) {
 
 function updateBoard(req, res) {
     res.status(404).send();
-    
+
 }
 
 function deleteBoard(req, res) {
+    console.log('Request to delete board received.');
+
+    let board_id = req.body.board_id;
+
+    if (board_id == null) {
+        errorService.handleMissingParam('Board ID is missing.', res);
+        return;
+    }
+
+    let checkQuery = 'SELECT * FROM board WHERE board_id = ?';
+    mysql.query(query, [board_id]).then(rows => {
+        if (rows[0] != undefined) {
+            // The board exists. Delete it
+            let query = 'DELETE FROM board WHERE board_id = ?';
+            return mysql.query(query, [board_id]);
+        } else {
+            return Promise.reject({
+                reason: 'Board not found'
+            });
+        }
+    }).then(() => {
+        console.log('Board successfully deleted');
+    }).catch(error => {
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
+    })
+
     res.status(404).send();
 
 }
