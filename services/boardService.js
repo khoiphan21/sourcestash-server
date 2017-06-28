@@ -105,11 +105,11 @@ function updateBoard(req, res) {
             })
         } else {
             // Update the board
-            let query = 'UPDATE board SET title = ?, owner = ? WHERE board_id = ?'
+            let query = 'UPDATE board SET title = ?, owner_id = ? WHERE board_id = ?'
             return mysql.query(query, [title, owner_id, board_id]);
         }
-    }).then(rows => {
-        res.status(200).send('Board successfully updated');
+    }).then(() => {
+        res.status(200).send(board);
         console.log('Board successfully updated.\n');
     }).catch(error => {
         if (error.reason) {
