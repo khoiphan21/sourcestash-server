@@ -78,6 +78,9 @@ app.post('/board/delete', boardService.deleteBoard)
  * API FOR CARD SERVICES
  */
 app.post('/card/all', cardService.getCardForBoard);
+app.post('/card/update', cardService.updateCard);
+app.post('/card/new', cardService.addNewCard);
+app.post('/card/delete', cardService.deleteCard);
 
 /**
  * API FOR SOURCE SERVICES
