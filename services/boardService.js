@@ -63,18 +63,18 @@ function newBoard(req, res) {
 function getAllBoards(req, res) {
     console.log('Request received to get all boards.');
 
-    let user_id = req.body.user_id;
+    let owner_id = req.body.owner_id;
 
-    if (user_id == null) {
+    if (owner_id == null) {
         errorService.handleMissingParam('User ID is missing', res);
         return;
     }
 
     let query = 'SELECT * FROM board WHERE owner_id = ?';
-    mysql.query(query, [user_id]).then(rows => {
+    mysql.query(query, [owner_id]).then(rows => {
         let rawBoards = rows;
         res.status(200).send(rawBoards);
-        console.log(`Boards retrieved for user with id ${user_id}`);
+        console.log(`Boards retrieved for user with id ${owner_id}`);
     }).catch(error => {
         errorService.handleServerError(error, res);
     });
