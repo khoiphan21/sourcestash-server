@@ -61,13 +61,63 @@ function newBoard(req, res) {
 }
 
 function getAllBoards(req, res) {
-    res.status(404).send();
+    console.log('Request received to get all boards.');
 
+    let user_id = req.body.user_id;
+
+    if (user_id == null) {
+        errorService.handleMissingParam('User ID is missing', res);
+        return;
+    }
+
+    let query = 'SELECT * FROM board WHERE owner_id = ?';
+    mysql.query(query, [user_id]).then(rows => {
+        let rawBoards = rows;
+        res.status(200).send(rawBoards);
+        console.log(`Boards retrieved for user with id ${user_id}`);
+    }).catch(error => {
+        errorService.handleServerError(error, res);
+    });
 }
 
 function updateBoard(req, res) {
-    res.status(404).send();
+    console.log('Request received to update a board');
 
+    let board = req.body.board;
+    let board_id = board.board_id;
+    let owner_id = board.owner_id;
+    let title = board.title;
+
+    // Check for null params
+    if (board.title == null || board.owner_id == null) {
+        errorService.handleMissingParam('Title and Owner ID are required.', res);
+        return;
+    }
+
+    // Check if the id exists
+    let checkQuery = `
+        SELECT * FROM board WHERE board_id = ?
+    `;
+    mysql.query(checkQuery, [board_id]).then(rows => {
+        if (rows[0] == undefined) {
+            return Promise.reject({
+                reason: 'The Board does not exist'
+            })
+        } else {
+            // Update the board
+            let query = 'UPDATE board SET title = ?, owner = ? WHERE board_id = ?'
+            return mysql.query(query, [title, owner_id, board_id]);
+        }
+    }).then(rows => {
+        res.status(200).send('Board successfully updated');
+        console.log('Board successfully updated.\n');
+    }).catch(error => {
+        if (error.reason) {
+            errorService.handleIncorrectParam(error, res);
+        } else {
+            errorService.handleServerError(error, res);
+        }
+    });
 }
 
 function deleteBoard(req, res) {

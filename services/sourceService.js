@@ -116,11 +116,10 @@ function getSourcesForStash(req, res, next) {
     mysql.query(query, stash_id).then(rows => {
         let rawSources = rows;
         res.status(200).send(rawSources);
-
-        console.log('Sources retrieved for stash with id: ' + stash_id + '\n');
+        console.log(`Sources retrieved for stash with id: ${stash_id}\n`);
     }).catch(error => {
         errorService.handleServerError(error, res);
-    })
+    });
 }
 
 // GET A SPECIFIC SOURCE
