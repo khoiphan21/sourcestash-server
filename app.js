@@ -26,6 +26,7 @@ var authService = require('./services/authService');
 var sourceService = require('./services/sourceService');
 var stashService = require('./services/stashService');
 var cardService = require('./services/cardService');
+var linkService = require('./services/linkService');
 var boardService = require('./services/boardService')
 var collaboratorService = require('./services/collaboratorService');
 var mysql = require('./services/mysql');
@@ -78,10 +79,18 @@ app.post('/board/gettitle', boardService.getBoardTitle)
 /**
  * API FOR CARD SERVICES
  */
+app.post('/card/new', cardService.createCard);
 app.post('/card/all', cardService.getCardForBoard);
 app.post('/card/update', cardService.updateCard);
-app.post('/card/new', cardService.addNewCard);
 app.post('/card/delete', cardService.deleteCard);
+
+/**
+ * API FOR LINK SERVICES
+ */
+app.post('/link/new', linkService.createLink);
+app.post('/link/all', linkService.getLinkForCard);
+app.post('/link/update', linkService.updateLink);
+app.post('/link/delete', linkService.deleteLink);
 
 /**
  * API FOR SOURCE SERVICES

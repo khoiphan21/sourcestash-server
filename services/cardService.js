@@ -33,12 +33,10 @@ function getCardForBoard(req, res, next) {
 }
 
 // ADD/CREATE A NEW CARD
-function addNewCard(req, res, next) {
+function createCard(req, res, next) {
     console.log('Request received to create a new card');
     // A new card must have these values
     let card = req.body.card;
-    console.log(card);
-    let isIDPresent = false;
 
     // Generate a random id
     let id = logic.generateUID();
@@ -69,7 +67,7 @@ function addNewCard(req, res, next) {
             ];
             return mysql.query(query, queryParams);
         }).then(() => {
-            // Send the card object with an id back to 
+            // Send the card object with an id back to the app
             res.status(201).send(card);
             console.log('Card creation successful.\n');
         }).catch(error => {
@@ -129,7 +127,7 @@ function deleteCard(req, res, next) {
         // Check if the card exists
         let checkQuery = 'SELECT * FROM `card` WHERE `card`.`card_id` = ?';
         mysql.query(checkQuery, card_id).then(rows => {
-            if (row[0] == undefined) {
+            if (rows[0] == undefined) {
                 return Promise.reject({
                     reason: 'Card does not exist.\n'
                 });
@@ -182,7 +180,7 @@ function isAnyCardParamMissing(card, isIDPresent = false) {
 
 module.exports = {
     getCardForBoard: getCardForBoard,
-    addNewCard: addNewCard,
+    createCard: createCard,
     updateCard: updateCard,
     deleteCard: deleteCard
 }
