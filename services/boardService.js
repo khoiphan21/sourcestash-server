@@ -156,9 +156,41 @@ function deleteBoard(req, res) {
     })
 }
 
+function getBoardTitle(req, res) {
+    let board_id = req.body.board_id;
+    if (board_id == null) {
+        errorService.handleMissingParam('Board ID required.', res);
+        return;
+    }
+
+    // Check if exists
+    // Check if the id exists
+    let checkQuery = `
+        SELECT * FROM board WHERE board_id = ?
+    `;
+    mysql.query(checkQuery, [board_id]).then(rows => {
+        if (rows[0] == undefined) {
+            return Promise.reject({
+                reason: 'The board does not exist'
+            })
+        } else {
+            // Update the board
+            let query = 'SELECT title FROM board WHERE board_id = ?'
+            return mysql.query(query, [board_id]);
+        }
+    }).then(rows => {
+        let titleObject = rows[0];
+        console.log(titleObject)
+        res.status(200).send(titleObject);
+    }).catch(error => {
+        errorService.handleServerError(error, res);
+    });
+}
+
 module.exports = {
     newBoard: newBoard,
     getAllBoards: getAllBoards,
     updateBoard: updateBoard,
-    deleteBoard: deleteBoard
+    deleteBoard: deleteBoard,
+    getBoardTitle: getBoardTitle,
 }

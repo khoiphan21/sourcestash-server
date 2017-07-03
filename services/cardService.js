@@ -26,7 +26,7 @@ function getCardForBoard(req, res, next) {
         let rawCards = rows;
         res.status(200).send(rawCards);
 
-        console.log('Cards retrieved for stash with id: ' + board_id + '\n');
+        console.log('Cards retrieved for board with id: ' + board_id + '\n');
     }).catch(error => {
         errorService.handleServerError(error, res);
     })
@@ -128,7 +128,7 @@ function deleteCard(req, res, next) {
         errorService.handleMissingParam('Card ID is missing', res);
     } else {
         // Check if the card exists
-        let checkQuery = 'SELECT * FROM `card` WHERE ' + '`card`.`card_id` = ?';
+        let checkQuery = 'SELECT * FROM `card` WHERE `card`.`card_id` = ?';
         mysql.query(checkQuery, card_id).then(rows => {
             if (row[0] == undefined) {
                 return Promise.reject({
@@ -138,7 +138,7 @@ function deleteCard(req, res, next) {
                 // 
                 //
                 // NOT SURE
-                let query = 'DELETE FROM `card` WHERE ' + '`card`.`card_id` = ?';
+                let query = 'DELETE FROM `card` WHERE `card`.`card_id` = ?';
                 return mysql.query(query, card_id);
             }
         }).then(rows => {

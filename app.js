@@ -73,6 +73,7 @@ app.post('/board/new', boardService.newBoard)
 app.post('/board/all', boardService.getAllBoards)
 app.post('/board/update', boardService.updateBoard)
 app.post('/board/delete', boardService.deleteBoard)
+app.post('/board/gettitle', boardService.getBoardTitle)
 
 /**
  * API FOR CARD SERVICES
