@@ -37,6 +37,7 @@ function addNewCard(req, res, next) {
     console.log('Request received to create a new card');
     // A new card must have these values
     let card = req.body.card;
+    console.log(card);
     let isIDPresent = false;
 
     // Generate a random id
@@ -49,9 +50,8 @@ function addNewCard(req, res, next) {
         // TODO: CHECK IF THE ID ALREADY EXISTS!
 
         // FOR NOW: just return an error
-        let checkQuery = 'SELECT * FROM `card` WHERE ' +
-            '`card_id` = ?';
-        mysql.query(checkQuery, id).then(rows => {
+        let checkQuery = 'SELECT * FROM card WHERE card_id = ?';
+        mysql.query(checkQuery, [id]).then(rows => {
             if (rows.length != 0) {
                 return Promise.reject({
                     reason: 'Internal error: unable to add card'
@@ -62,7 +62,7 @@ function addNewCard(req, res, next) {
         }).then(() => {
             // When control reaches here, the id must be unique
             // Add the card to the database
-            let query = `INSERT INTO \`card\` (\`card_id\`, \`board_id\`, \`title\`, \`x_location\`, \`y_location\`) VALUES (?, ?, ?, ?, ?)`
+            let query = `INSERT INTO card (card_id, board_id, title, x_location, y_location) VALUES (?, ?, ?, ?, ?)`
 
             let queryParams = [
                 id, card.board_id, card.title, card.x_location, card.y_location
@@ -121,7 +121,6 @@ function updateCard(req, res, next) {
 // DELETE
 function deleteCard(req, res, next) {
     console.log('Request to delete card received');
-    console.log(`Card id is ${req.body.card_id}`)
 
     let card_id = req.body.card_id;
     if (card_id == null) {
@@ -164,7 +163,9 @@ function isAnyCardParamMissing(card, isIDPresent = false) {
     if (
         card == null ||
         card.board_id == null ||
+        card.board_id == '' ||
         card.title == null ||
+        card.title == '' ||
         card.x_location == null ||
         card.y_location == null
     ) {
