@@ -99,9 +99,9 @@ function updateCard(req, res, next) {
                 })
             } else {
                 // Update the source
-                let query = `UPDATE \`card\` SET \`board_id\` = ?, \`title\` = ?, \`x_location\` = ?, \`y_location = ?\` WHERE \`card\`.\`card_id\` = ? `;
+                let query = `UPDATE card SET board_id = ?, title = ?, x_location = ?, y_location = ? WHERE card_id = ?`;
                 let inserts = [
-                    card.card_id, card.board_id, card.title, card.x_location, card.y_location
+                    card.board_id, card.title, card.x_location, card.y_location, card.card_id
                 ]
                 return mysql.query(query, inserts)
             }
@@ -118,28 +118,28 @@ function updateCard(req, res, next) {
     }
 }
 
-
 // DELETE
 function deleteCard(req, res, next) {
     console.log('Request to delete card received');
+    console.log(`Card id is ${req.body.card_id}`)
 
     let card_id = req.body.card_id;
     if (card_id == null) {
         errorService.handleMissingParam('Card ID is missing', res);
     } else {
         // Check if the card exists
-        let checkQuery = 'SELECT * FROM `card` WHERE ' + '`card`.`card_id` = ?';
-        mysql.query(checkQuery, card_id).then(rows => {
-            if (row[0] == undefined) {
+        let checkQuery = 'SELECT * FROM card WHERE card_id = ?';
+        mysql.query(checkQuery, [card_id]).then(rows => {
+            if (rows[0] == undefined) {
                 return Promise.reject({
                     reason: 'Card does not exist.\n'
-                })
+                });
             } else {
                 // 
                 //
                 // NOT SURE
-                let query = 'DELETE FROM `card` WHERE ' + '`card`.`card_id` = ?';
-                return mysql.query(query, card_id);
+                let query = 'DELETE FROM card WHERE card_id = ?';
+                return mysql.query(query, [card_id]);
             }
         }).then(rows => {
             console.log('Card successfully deleted.');
